@@ -1,0 +1,184 @@
+<div id="stat-predictions-wrapper"
+     data-max-picks-per-player="{{ module_constraints.max_picks_per_player }}"
+     data-max-players-per-team="{{ module_constraints.max_players_per_team }}">
+  <div class="d-flex flex-wrap justify-content-center">
+    {% for field in rows %}
+      <div class="card m-2 stat-prediction-card"
+           style="min-width: 250px;
+                  max-width: 300px">
+        <div class="card-header">
+          <label for="{{ field.definition }}" class="form-label mb-0">
+{{ field.label }}
+          </label>
+        </div>
+        <div class="card-body">
+          {% if field.description %}
+            <p class="card-text text-muted small">
+{{ field.description }}
+            </p>
+          {% endif %}
+          <select name="{{ field.definition }}"
+                  id="{{ field.definition }}"
+                  class="form-select stat-prediction-select"
+                  placeholder="Make a prediction...">
+            <option value="">
+Make a prediction...
+            </option>
+            {% for item in field.options %}
+              {% if item.options %}
+                 {# This is an OptionGroup #}
+                <optgroup label="{{ item.name }}">
+                  {% for option in item.options %}
+                    <option style="color: whitesmoke"
+                            value="{{ option.id }}"
+                            data-tokens="{{ option.aliases|join:',' }}"
+                            data-team-name="{{ item.name }}"
+                            {% if field.value and field.value.0 == option.id %}
+                              selected
+                            {% endif %}>
+                                            {{ option.name }}
+                    </option>
+                  {% endfor %}
+                </optgroup>
+              {% else %}
+                 {# This is a top-level Option #}
+                <option value="{{ item.id }}"
+                        data-aliases="{{ item.aliases|join:',' }}"
+                        data-team-name=""
+                        {% if field.value and field.value.0 == item.id %}
+                          selected
+                        {% endif %}>
+                                    {{ item.name }}
+                </option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          {% for error in field.errors %}
+            <div class="invalid-feedback d-block">
+{{ error }}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% block extra_scripts %}
+  <script>
+document.addEventListener("DOMContentLoaded", function () {
+    const wrapper = document.getElementById("stat-predictions-wrapper");
+    if (!wrapper) return;
+
+    const maxPicksPerPlayer = parseInt(wrapper.dataset.maxPicksPerPlayer, 10);
+    const maxPlayersPerTeam = wrapper.dataset.maxPlayersPerTeam
+        ? parseInt(wrapper.dataset.maxPlayersPerTeam, 10)
+        : null;
+
+    const selects = Array.from(
+        document.querySelectorAll(".stat-prediction-select"),
+    );
+    const tomSelects = selects.map(
+        (el) =>
+            new TomSelect(el, {
+                create: false,
+                maxOptions: null,  // Show all options (default is 50)
+                sortField: {
+                    field: "text",
+                    direction: "asc",
+                },
+                searchField: [
+                  {field: 'tokens', weight: 0.8},
+                  {field: 'text', weight: 2}
+                ],
+            }),
+    );
+    console.log("tomSelects:", tomSelects);
+
+    function updateDisabledOptions() {
+        const selectedPlayerIds = new Map();
+        const playerTeamMap = new Map();
+        const teamPlayerCounts = new Map();
+        const teamPlayerMap = new Map();
+
+        tomSelects.forEach((ts) => {
+            const selectedPlayerId = ts.getValue();
+            if (selectedPlayerId) {
+                selectedPlayerIds.set(
+                    selectedPlayerId,
+                    (selectedPlayerIds.get(selectedPlayerId) || 0) + 1,
+                );
+
+                if (maxPlayersPerTeam !== null) {
+                    Object.values(ts.options).forEach((option) => {
+                      if (option.value != selectedPlayerId) {
+                        if (!playerTeamMap.has(option.teamName)) {
+                          playerTeamMap.set(option.teamName, []);
+                        }
+                        playerTeamMap.get(option.teamName).push(option.value);
+                        return;
+                      }
+                      const teamName = option?.teamName;
+                      if (teamName) {
+                        teamPlayerCounts.set(
+                          teamName,
+                          (teamPlayerCounts.get(teamName) || 0) + 1
+                        )
+                      }
+                    });
+                }
+            }
+        });
+
+        for (const [teamName, playerIds] of playerTeamMap.entries()) {
+            for (const playerId of playerIds) {
+                teamPlayerMap.set(playerId, teamName);
+            }
+        }
+
+        tomSelects.forEach((ts, index) => {
+            const currentSelection = ts.getValue();
+            const originalSelect = selects[index];
+
+            Object.values(ts.options).forEach((option) => {
+                
+                if (!option.value || option.value === "") return;
+
+                const playerId = option.value; // technically could also be teamId
+                const teamName = option?.teamName;
+                let isDisabled = false;
+
+                const picksOfThisPlayer = selectedPlayerIds.get(playerId) || 0;
+                if (
+                    picksOfThisPlayer >= maxPicksPerPlayer &&
+                    playerId !== currentSelection
+                ) {
+                    isDisabled = true;
+                }
+
+                const picksFromThisTeam = teamPlayerCounts.get(teamName) || 0;
+                if (maxPlayersPerTeam !== null && picksFromThisTeam >= maxPlayersPerTeam) {
+                    const isCurrentSelectionTeam = option.teamName == teamPlayerMap.get(currentSelection);
+                    if (!isCurrentSelectionTeam) {
+                        isDisabled = true;
+                    }
+                }
+                
+                if (isDisabled) {
+                  option.disabled = true;
+                } else {
+                  option.disabled = false;
+                }
+            });
+        });
+    }
+
+    tomSelects.forEach((ts) => {
+        ts.on("change", updateDisabledOptions);
+    });
+
+    // Initial check on page load
+    updateDisabledOptions();
+});
+  </script>
+{% endblock extra_scripts %}

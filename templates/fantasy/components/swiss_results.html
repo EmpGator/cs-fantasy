@@ -1,0 +1,60 @@
+{% load fantasy_tags %}
+
+<h2>{{ module.name }}</h2>
+
+{{ users|dataclass_asdict|json_script:"swiss-users-data" }}
+{{ module.table_data|dataclass_asdict|json_script:"swiss-rows-data" }}
+{{ module.module_total_scores|dataclass_asdict|json_script:"swiss-totals-data" }}
+
+<div x-data="swissTable('{{ module.id }}')" x-init="init()">
+    <div class="my-3 sort-key-selector" x-show="sortCol >= 2">
+        <span>Sort user columns by:</span>
+        <button @click="sortSubKey = 'display'" :class="{ 'active btn-primary': sortSubKey === 'display', 'btn-secondary': sortSubKey !== 'display' }" class="btn btn-sm">Score</button>
+        <button @click="sortSubKey = 'points'" :class="{ 'active btn-primary': sortSubKey === 'points', 'btn-secondary': sortSubKey !== 'points' }" class="btn btn-sm">Points</button>
+    </div>
+
+    <div class="table-container">
+        <table class="table table-bordered">
+            <thead>
+                <tr x-ref="sortableHead">
+                    <th @click="sortBy(0)" class="sticky-col first-col sortable">
+                        Team
+                        <span class="sort-icon" x-show="sortCol === 0" x-html="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span>
+                    </th>
+                    <th @click="sortBy(1)" class="sticky-col second-col sortable">
+                        Actual Result
+                        <span class="sort-icon" x-show="sortCol === 1" x-html="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span>
+                    </th>
+                    <template x-for="(userId, index) in userColumns" :key="userId">
+                        <th @click="sortBy(index + 2)" class="sortable">
+                            <span x-text="userMap[userId]?.username || 'Unknown'"></span>
+                            <span class="sort-icon" x-show="sortCol === index + 2" x-html="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span>
+                        </th>
+                    </template>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="row in sortedRows" :key="row.team_name">
+                    <tr>
+                        <td class="sticky-col first-col" x-text="row.team_name"></td>
+                        <td class="sticky-col second-col" x-text="row.actual_result"></td>
+                        <template x-for="userId in userColumns" :key="userId">
+                            <td>
+                                <span x-text="row.predictions[userId]?.display"></span>
+                                <span class="prediction-label" :style="{ backgroundColor: row.predictions[userId]?.color, float: 'right' }" x-text="row.predictions[userId]?.points"></span>
+                            </td>
+                        </template>
+                    </tr>
+                </template>
+                <tr>
+                    <td colspan="2" class="sticky-col first-col"><strong>Total Score</strong></td>
+                    <template x-for="userId in userColumns" :key="userId">
+                        <td>
+                            <strong><span x-text="totals[userId] || 0"></span></strong>
+                        </td>
+                    </template>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

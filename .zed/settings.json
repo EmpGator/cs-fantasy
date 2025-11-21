@@ -1,0 +1,20 @@
+{
+  "formatter": {
+    "external": {
+      "command": "djlint",
+      "arguments": ["--reformat", "-"]
+    }
+  },
+  "format_on_save": "on",
+  "languages": {
+    "HTML": {
+      "formatter": {
+        "external": {
+          "command": "djlint",
+          "arguments": ["--reformat", "-"]
+        }
+      },
+      "format_on_save": "on"
+    }
+  }
+}

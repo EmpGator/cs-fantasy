@@ -1,0 +1,37 @@
+{
+  "swiss_results_sample.html": {
+    "captured_at": "2024-11-04T19:02:00",
+    "source_url": "https://www.hltv.org/events/...",
+    "description": "Swiss stage results HTML sample",
+    "tournament": "Sample tournament",
+    "notes": "Update periodically to catch HTML format changes"
+  },
+  "finished_swiss_tournament.html": {
+    "captured_at": "2025-11-19T21:19:30.201929",
+    "source_url": "https://www.hltv.org/events/8046/pgl-masters-bucharest-2025",
+    "description": "Finished tournament with swiss groups and single elimn playoffs with bo 5 final",
+    "tournament": "",
+    "notes": "Update periodically to catch HTML format changes"
+  },
+  "leaderboards_clutches.html": {
+    "captured_at": "2025-11-19T21:20:53.458664",
+    "source_url": "https://www.hltv.org/stats/leaderboards/clutch/clutches-1vsx-won?event=8046",
+    "description": "leaderboards for most clutches in tournament",
+    "tournament": "",
+    "notes": "Update periodically to catch HTML format changes"
+  },
+  "leaaderboards_dpr.html": {
+    "captured_at": "2025-11-19T21:21:58.312018",
+    "source_url": "https://www.hltv.org/stats/leaderboards/dpr/deaths-per-round?event=8046",
+    "description": "leaderboard for deaths per round, usefull to test invert flag",
+    "tournament": "",
+    "notes": "Update periodically to catch HTML format changes"
+  },
+  "upcoming_swiss_tournament.html": {
+    "captured_at": "2025-11-19T21:22:59.728398",
+    "source_url": "https://www.hltv.org/events/8504/starladder-budapest-major-2025-stage-1",
+    "description": "Upcoming swiss tournament",
+    "tournament": "",
+    "notes": "Update periodically to catch HTML format changes"
+  }
+}

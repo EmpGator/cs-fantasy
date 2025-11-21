@@ -1,0 +1,43 @@
+{% load fantasy_tags %}
+
+{{ module.table_data|dataclass_asdict|json_script:module.table_data_id }}
+
+<div x-data="statPredictionTable('{{ module.id }}')" x-init="init()">
+    <h2>{{ module.name }}</h2>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th @click="sortBy('user')" class="sortable">
+                    User
+                    <span class="sort-icon" x-show="sortKey === 'user'" x-html="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span>
+                </th>
+                {% for category in module.categories %}
+                    <th>{{ category.title }}</th>
+                {% endfor %}
+                <th @click="sortBy('score')" class="sortable">
+                    Total Score
+                    <span class="sort-icon" x-show="sortKey === 'score'" x-html="sortDir === 'asc' ? '&#9650;' : '&#9660;'"></span>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            <template x-for="row in sortedRows" :key="row.key">
+                <tr>
+                    <td x-text="row.user"></td>
+                    <template x-for="(prediction, i) in row.predictions" :key="i">
+                        <td>
+                            <span x-text="prediction.display"></span>
+                            <span
+                                x-show="row.user_uuid"
+                                class="prediction-label"
+                                :style="{ backgroundColor: prediction.color, float: 'right' }"
+                                x-text="prediction.points"
+                            ></span>
+                        </td>
+                    </template>
+                    <td><strong x-text="row.score ?? ''"></strong></td>
+                </tr>
+            </template>
+        </tbody>
+    </table>
+</div>

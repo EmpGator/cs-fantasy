@@ -1,20 +1,58 @@
-# Import all admin classes so Django can find them
-from .core import UserAdmin, TournamentAdmin, TeamAdmin
-from .modules import (
+"""
+Admin configuration for Fantasy app.
+
+Models are registered with a custom grouped admin site for better organization.
+"""
+from .site import grouped_admin_site
+from .core import PlayerAdmin, TeamAdmin, TournamentAdmin, UserAdmin
+from .stat_predictions import (
+    StatPredictionAdmin,
+    StatPredictionCategoryAdmin,
+    StatPredictionDefinitionAdmin,
+    StatPredictionResultAdmin,
+    StatPredictionsModuleAdmin,
+    StatPredictionScoringRuleAdmin,
+)
+from .swiss import (
     SwissModuleAdmin,
+    SwissModuleInline,
+    SwissModuleScoreAdmin,
     SwissPredictionAdmin,
     SwissResultAdmin,
-    SwissScoringRuleAdmin,
+    SwissScoreAdmin,
+    SwissScoreGroupAdmin,
 )
+from .bracket import (
+    BracketAdmin,
+    BracketMatchAdmin,
+    UserBracketPredictionAdmin,
+    UserMatchPredictionAdmin,
+)
+from .scoring import UserModuleScoreAdmin, UserTournamentScoreAdmin
 
 __all__ = [
-    # Core admin
+    "grouped_admin_site",  # Custom admin site
     "UserAdmin",
     "TournamentAdmin",
     "TeamAdmin",
-    # Swiss module admin
+    "PlayerAdmin",
+    "SwissModuleInline",
     "SwissModuleAdmin",
     "SwissPredictionAdmin",
     "SwissResultAdmin",
-    "SwissScoringRuleAdmin",
+    "SwissScoreGroupAdmin",
+    "SwissScoreAdmin",
+    "SwissModuleScoreAdmin",
+    "StatPredictionsModuleAdmin",
+    "StatPredictionScoringRuleAdmin",
+    "StatPredictionCategoryAdmin",
+    "StatPredictionDefinitionAdmin",
+    "StatPredictionAdmin",
+    "StatPredictionResultAdmin",
+    "BracketAdmin",
+    "BracketMatchAdmin",
+    "UserBracketPredictionAdmin",
+    "UserMatchPredictionAdmin",
+    "UserModuleScoreAdmin",
+    "UserTournamentScoreAdmin",
 ]

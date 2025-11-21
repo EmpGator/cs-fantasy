@@ -1,15 +1,71 @@
-# Import all models so Django can find them
-from .core import User, Tournament, Team
-from .modules import SwissModule, SwissPrediction, SwissResult, SwissScoringRule
+from .core import (
+    BaseModule,
+    Player,
+    Stage,
+    Team,
+    Tournament,
+    User,
+    UserManager,
+)
+from .swiss import (
+    SwissModule,
+    SwissModuleScore,
+    SwissPrediction,
+    SwissResult,
+    SwissScore,
+    SwissScoreGroup,
+)
+from .stat_predictions import (
+    StatPredictionsModule,
+    StatPredictionScoringRule,
+    StatPredictionCategory,
+    StatPredictionDefinition,
+    StatPrediction,
+    StatPredictionResult,
+)
+from .bracket import (
+    Bracket,
+    BracketMatch,
+    UserBracketPrediction,
+    UserMatchPrediction,
+)
+from .scoring import (
+    UserModuleScore,
+    UserSwissModuleScore,
+    UserBracketModuleScore,
+    UserStatPredictionsModuleScore,
+    UserTournamentScore,
+)
+from .cookies import CloudflareCookie
 
 __all__ = [
-    # Core models
     "User",
+    "UserManager",
     "Tournament",
+    "Stage",
+    "BaseModule",
     "Team",
-    # Swiss module models
+    "Player",
     "SwissModule",
+    "SwissScoreGroup",
+    "SwissScore",
+    "SwissModuleScore",
     "SwissPrediction",
     "SwissResult",
-    "SwissScoringRule",
+    "StatPredictionsModule",
+    "StatPredictionScoringRule",
+    "StatPredictionCategory",
+    "StatPredictionDefinition",
+    "StatPrediction",
+    "StatPredictionResult",
+    "Bracket",
+    "BracketMatch",
+    "UserBracketPrediction",
+    "UserMatchPrediction",
+    "UserModuleScore",
+    "UserSwissModuleScore",
+    "UserBracketModuleScore",
+    "UserStatPredictionsModuleScore",
+    "UserTournamentScore",
+    "CloudflareCookie",
 ]

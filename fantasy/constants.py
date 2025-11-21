@@ -22,8 +22,8 @@ ELIMINATED_RECORDS: List[str] = ["0-3", "1-3", "2-3"]
 QUALIFIED_RECORDS: List[str] = ["3-0", "3-1", "3-2"]
 
 # Default scoring points
-DEFAULT_EXACT_MATCH_POINTS: int = 10
-DEFAULT_RESULT_GROUP_POINTS: int = 3
+DEFAULT_EXACT_MATCH_POINTS: int = 3
+DEFAULT_RESULT_GROUP_POINTS: int = 1
 
 # Swiss stage defaults
 DEFAULT_SWISS_TEAMS: int = 16

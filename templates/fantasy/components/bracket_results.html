@@ -1,0 +1,446 @@
+{% load fantasy_tags %}
+
+<h2>{{ module.name }}</h2>
+
+{{ module|dataclass_asdict|json_script:"bracket-module-data" }}
+
+<div x-data="bracketResults({{ module.id }})" x-init="init()">
+    <!-- Controls -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <!-- View Mode Toggle -->
+        <div>
+            <span>View:</span>
+            <button
+                @click="viewMode = 'slider'"
+                :class="{ 'active btn-primary': viewMode === 'slider', 'btn-secondary': viewMode !== 'slider' }"
+                class="btn btn-sm"
+            >
+                Slider
+            </button>
+            <button
+                @click="viewMode = 'stacked'"
+                :class="{ 'active btn-primary': viewMode === 'stacked', 'btn-secondary': viewMode !== 'stacked' }"
+                class="btn btn-sm"
+            >
+                Stacked
+            </button>
+        </div>
+
+        <!-- Sorting Controls -->
+        <div>
+            <span>Sort by:</span>
+            <button
+                @click="setSortKey('points')"
+                :class="{ 'active btn-primary': sortKey === 'points', 'btn-secondary': sortKey !== 'points' }"
+                class="btn btn-sm"
+            >
+                Points
+            </button>
+            <button
+                @click="setSortKey('name')"
+                :class="{ 'active btn-primary': sortKey === 'name', 'btn-secondary': sortKey !== 'name' }"
+                class="btn btn-sm"
+            >
+                Name
+            </button>
+            <button
+                @click="toggleSortDirection()"
+                class="btn btn-sm btn-outline-secondary"
+                x-show="sortKey === 'name' || sortKey === 'points'"
+            >
+                <i class="bi" :class="sortDirection === 'asc' ? 'bi-sort-up' : 'bi-sort-down'"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Slider View -->
+    <div x-show="viewMode === 'slider'" x-cloak>
+        <!-- Custom Pagination (above slider) -->
+        <div class="bracket-pagination mb-3">
+            <template x-for="(slide, index) in sortedSlides" :key="slide.slide_id">
+                <button
+                    @click="swiper && swiper.slideTo(index)"
+                    :class="{ 'active': currentSlideIndex === index }"
+                    class="pagination-name-btn"
+                    x-text="slide.badge_text"
+                ></button>
+            </template>
+        </div>
+
+        <div class="swiper bracket-swiper" x-ref="swiperContainer">
+            <div class="swiper-wrapper">
+                <template x-for="slide in sortedSlides" :key="slide.slide_id">
+                    <div class="swiper-slide">
+                        <div class="bracket-slide-content">
+                            <!-- Slide Header with Badge -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span
+                                    class="badge fs-6"
+                                    :class="slide.badge_type === 'actual' ? 'bg-primary' : 'bg-info'"
+                                    x-text="slide.badge_text"
+                                ></span>
+                                <span
+                                    x-show="slide.total_points !== null"
+                                    class="badge bg-success fs-6"
+                                    x-text="'Points: ' + slide.total_points"
+                                ></span>
+                            </div>
+
+                            <!-- Bracket Display -->
+                            <div class="bracket-container">
+                                <template x-for="(matches, round) in slide.matches_by_round" :key="round">
+                                    <div class="bracket-round">
+                                        <h5 class="round-title" x-text="'Round ' + round"></h5>
+                                        <template x-for="match in matches" :key="match.match_id">
+                                            <div class="match-card">
+                                                <div class="match-header">
+                                                    <span class="match-name" x-text="match.name"></span>
+                                                    <span
+                                                        class="match-points"
+                                                        x-show="slide.badge_type !== 'actual'"
+                                                        :style="{ backgroundColor: match.color }"
+                                                        x-text="match.points"
+                                                    ></span>
+                                                </div>
+                                                <div class="match-teams">
+                                                    <div class="team-row" :class="{ 'winner': match.winner_name === match.team_a_name }">
+                                                        <span class="team-name" x-text="match.team_a_name || 'TBD'"></span>
+                                                        <span class="team-score" x-text="match.team_a_score ?? '-'"></span>
+                                                    </div>
+                                                    <div class="team-row" :class="{ 'winner': match.winner_name === match.team_b_name }">
+                                                        <span class="team-name" x-text="match.team_b_name || 'TBD'"></span>
+                                                        <span class="team-score" x-text="match.team_b_score ?? '-'"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Navigation -->
+            <div class="swiper-button-prev"></div>
+            <div class="swiper-button-next"></div>
+        </div>
+    </div>
+
+    <!-- Stacked View -->
+    <div x-show="viewMode === 'stacked'" x-cloak>
+        <template x-for="slide in sortedSlides" :key="slide.slide_id">
+            <div class="bracket-slide-stacked mb-4">
+                <!-- Slide Header with Badge -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span
+                        class="badge fs-6"
+                        :class="slide.badge_type === 'actual' ? 'bg-primary' : 'bg-info'"
+                        x-text="slide.badge_text"
+                    ></span>
+                    <span
+                        x-show="slide.total_points !== null"
+                        class="badge bg-success fs-6"
+                        x-text="'Points: ' + slide.total_points"
+                    ></span>
+                </div>
+
+                <!-- Bracket Display -->
+                <div class="bracket-container">
+                    <template x-for="(matches, round) in slide.matches_by_round" :key="round">
+                        <div class="bracket-round">
+                            <h5 class="round-title" x-text="'Round ' + round"></h5>
+                            <template x-for="match in matches" :key="match.match_id">
+                                <div class="match-card">
+                                    <div class="match-header">
+                                        <span class="match-name" x-text="match.name"></span>
+                                        <span
+                                            class="match-points"
+                                            x-show="slide.badge_type !== 'actual'"
+                                            :style="{ backgroundColor: match.color }"
+                                            x-text="match.points"
+                                        ></span>
+                                    </div>
+                                    <div class="match-teams">
+                                        <div class="team-row" :class="{ 'winner': match.winner_name === match.team_a_name }">
+                                            <span class="team-name" x-text="match.team_a_name || 'TBD'"></span>
+                                            <span class="team-score" x-text="match.team_a_score ?? '-'"></span>
+                                        </div>
+                                        <div class="team-row" :class="{ 'winner': match.winner_name === match.team_b_name }">
+                                            <span class="team-name" x-text="match.team_b_name || 'TBD'"></span>
+                                            <span class="team-score" x-text="match.team_b_score ?? '-'"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
+<style>
+    [x-cloak] { display: none !important; }
+
+    .bracket-pagination {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .pagination-name-btn {
+        padding: 6px 12px;
+        border: 1px solid #4a627a;
+        background: #34495e;
+        color: #ecf0f1;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .pagination-name-btn:hover {
+        background: #415a77;
+        border-color: #5a7a9a;
+    }
+
+    .pagination-name-btn.active {
+        background: var(--bs-primary);
+        color: white;
+        border-color: var(--bs-primary);
+    }
+
+    .bracket-swiper {
+        position: relative;
+        padding: 20px 50px;
+    }
+
+    .swiper-slide {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 400px;
+    }
+
+    .bracket-slide-content {
+        padding: 20px;
+        background: #2c3e50;
+        border-radius: 10px;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .bracket-container {
+        display: flex;
+        gap: 25px;
+        overflow-x: auto;
+        padding: 15px;
+        align-items: center;
+        justify-content: center;
+        min-height: 500px;
+    }
+
+    .bracket-round {
+        flex: 0 0 auto;
+        min-width: 220px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+    }
+
+    .round-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #ecf0f1;
+        text-align: center;
+        border-bottom: 1px solid #4a627a;
+        padding-bottom: 4px;
+    }
+
+    .match-card {
+        background: #34495e;
+        border-radius: 5px;
+        padding: 10px;
+        margin: 8px 0;
+    }
+
+    .match-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+
+    .match-name {
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: #ecf0f1;
+        text-align: center;
+        flex-grow: 1;
+    }
+
+    .match-points {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+
+    .match-teams {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .team-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 5px 8px;
+        margin: 2px 0;
+        color: #ecf0f1;
+    }
+
+    .team-row.winner {
+        font-weight: bold;
+        background: rgba(52, 152, 219, 0.2);
+        border-left: 3px solid var(--bs-primary);
+        border-radius: 3px;
+    }
+
+    .team-name {
+        font-size: 0.8rem;
+    }
+
+    .team-score {
+        font-size: 0.8rem;
+        font-weight: 600;
+        min-width: 18px;
+        text-align: right;
+    }
+
+    .swiper-button-prev,
+    .swiper-button-next {
+        color: var(--bs-primary);
+    }
+
+    .swiper-pagination-bullet-active {
+        background: var(--bs-primary);
+    }
+
+    .bracket-slide-stacked {
+        background: #2c3e50;
+        border-radius: 10px;
+        padding: 20px;
+    }
+
+    .bracket-slide-stacked .round-title {
+        color: #ecf0f1;
+    }
+
+    .bracket-slide-stacked .match-card {
+        background: #34495e;
+    }
+
+    .bracket-slide-stacked .team-row {
+        color: #ecf0f1;
+    }
+
+    .bracket-slide-stacked .team-row.winner {
+        background: rgba(52, 152, 219, 0.2);
+        border-left: 3px solid var(--bs-primary);
+    }
+</style>
+
+<script>
+    function bracketResults(moduleId) {
+        return {
+            moduleId: moduleId,
+            slides: [],
+            viewMode: 'slider',
+            sortKey: 'points',
+            sortDirection: 'desc',
+            swiper: null,
+            currentSlideIndex: 0,
+
+            init() {
+                const dataEl = document.getElementById('bracket-module-data');
+                if (dataEl) {
+                    const moduleData = JSON.parse(dataEl.textContent);
+                    this.slides = moduleData.slides || [];
+                }
+
+                this.$nextTick(() => {
+                    this.initSwiper();
+                });
+            },
+
+            get sortedSlides() {
+                const slides = [...this.slides];
+
+                // Always keep actual results first
+                const actualSlide = slides.find(s => s.slide_id === 'actual');
+                const userSlides = slides.filter(s => s.slide_id !== 'actual');
+
+                // Sort user slides
+                userSlides.sort((a, b) => {
+                    let compareValue = 0;
+
+                    if (this.sortKey === 'points') {
+                        compareValue = (a.total_points || 0) - (b.total_points || 0);
+                    } else if (this.sortKey === 'name') {
+                        compareValue = (a.username || '').localeCompare(b.username || '');
+                    }
+
+                    return this.sortDirection === 'asc' ? compareValue : -compareValue;
+                });
+
+                return actualSlide ? [actualSlide, ...userSlides] : userSlides;
+            },
+
+            setSortKey(key) {
+                if (this.sortKey === key) {
+                    this.toggleSortDirection();
+                } else {
+                    this.sortKey = key;
+                    // Default direction based on key
+                    this.sortDirection = key === 'points' ? 'desc' : 'asc';
+                }
+            },
+
+            toggleSortDirection() {
+                this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+            },
+
+            initSwiper() {
+                if (this.$refs.swiperContainer && typeof Swiper !== 'undefined') {
+                    this.swiper = new Swiper(this.$refs.swiperContainer, {
+                        direction: 'horizontal',
+                        slidesPerView: 1,
+                        spaceBetween: 30,
+                        navigation: {
+                            nextEl: '.swiper-button-next',
+                            prevEl: '.swiper-button-prev',
+                        },
+                        keyboard: {
+                            enabled: true,
+                        },
+                        on: {
+                            slideChange: (swiper) => {
+                                this.currentSlideIndex = swiper.activeIndex;
+                            },
+                        },
+                    });
+                }
+            }
+        };
+    }
+</script>

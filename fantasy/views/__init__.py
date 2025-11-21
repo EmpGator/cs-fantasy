@@ -1,38 +1,17 @@
 from .core import (
     home,
-    dashboard,
-    TournamentListView,
-    TournamentDetailView,
-    register,
-    profile,
-    CustomLoginView,
-    CustomLogoutView,
-    user_by_slug,
-    user_by_uuid,
+    login_view,
+    tournament_user_submissions,
+    user_landingpage,
 )
-
-from .modules import (
-    SwissModuleListView,
-    SwissModuleDetailView,
-    swiss_predictions,
-    swiss_leaderboard,
-)
+from .swiss import swiss_predictions
+from .stat_predictions import stat_predictions
 
 __all__ = [
-    # Core views
     "home",
-    "dashboard",
-    "TournamentListView",
-    "TournamentDetailView",
-    "register",
-    "profile",
-    "CustomLoginView",
-    "CustomLogoutView",
-    "user_by_slug",
-    "user_by_uuid",
-    # Swiss module views
-    "SwissModuleListView",
-    "SwissModuleDetailView",
+    "login_view",
+    "user_landingpage",
+    "tournament_user_submissions",
     "swiss_predictions",
-    "swiss_leaderboard",
+    "stat_predictions",
 ]

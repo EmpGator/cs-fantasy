@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ user.username }}'s Page
+{% endblock title %}
+
+{% block content %}
+  <div class="container py-5">
+    <h1 class="display-4 fw-bold mb-3">Welcome, {{ user.username }}!</h1>
+
+    <p class="lead mb-5">This is your personal page. You can use the links below to make or view your predictions for active tournaments.</p>
+
+    <h2 class="h2 mb-4">Tournaments</h2>
+
+    <div>
+      {% for tournament in tournaments %}
+        <div class="card bg-body-tertiary border-secondary mb-3">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <h5 class="card-title mb-0">{{ tournament.name }}</h5>
+              {% if tournament.end_date < now %}
+                <span class="badge bg-secondary">Finished</span>
+              {% elif tournament.start_date > now %}
+                <span class="badge bg-info">Upcoming</span>
+              {% else %}
+                <span class="badge bg-success">Ongoing</span>
+              {% endif %}
+            </div>
+            <p class="card-text">{{ tournament.start_date|date:"M d, Y" }} - {{ tournament.end_date|date:"M d, Y" }}</p>
+            {% if tournament.slug %}
+              {% if tournament.end_date < now %}
+                <a href="{% url 'tournament_combination_view' tournament_slug=tournament.slug %}" class="btn btn-secondary mt-2">
+                  View Results
+                </a>
+              {% else %}
+                <a href="{% url 'tournament_user_submissions_by_slug' user_slug=user.slug tournament_slug=tournament.slug %}" class="btn btn-primary mt-2">
+                  View Predictions
+                </a>
+                {% if tournament.start_date < now %} {# This means it's ongoing #}
+                  <a href="{% url 'tournament_combination_view' tournament_slug=tournament.slug %}" class="btn btn-info mt-2">
+                    View Results
+                  </a>
+                {% endif %}
+              {% endif %}
+            {% else %}
+              <p class="text-danger mt-2">This tournament cannot be accessed as it is missing a slug.</p>
+            {% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <div class="alert alert-info" role="alert">
+          There are no tournaments at the moment.
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock content %}

@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% load fantasy_tags %}
+
+{% block extra_head %}
+<style>
+    .table-container {
+        overflow-x: auto;
+    }
+    .sticky-col {
+        position: sticky;
+        z-index: 2;
+    }
+    th.sticky-col {
+        background-color: #243550; /* From theme.css .prediction-table th */
+    }
+    td.sticky-col {
+        background-color: #0a1929; /* From theme.css --bs-body-bg */
+    }
+    .first-col {
+        left: 0;
+        min-width: 150px;
+    }
+    .second-col {
+        left: 150px; /* Should match the width of the first column */
+        min-width: 100px;
+    }
+    .table th {
+        cursor: pointer;
+    }
+    .table th.sortable:hover {
+        background-color: #3d4e5f; /* A slightly lighter shade */
+    }
+    .sort-icon {
+        margin-left: 5px;
+        display: inline-block;
+    }
+    .sort-key-selector button {
+        margin-right: 5px;
+    }
+    .sort-key-selector button.active {
+        font-weight: bold;
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>{{ tournament.name }} - Combination View</h1>
+    <p>{{ tournament.description }}</p>
+    {% if tournament.can_make_predictions and request.user.is_authenticated %}
+    <div class="mb-3">
+        <a href="{% url 'tournament_user_submissions_by_slug' user_slug=request.user.slug tournament_slug=tournament.slug %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-pencil"></i> Make Predictions
+        </a>
+    </div>
+    {% endif %}
+
+    {{ tournament.total_scores|dataclass_asdict|json_script:"tournament-scores-data" }}
+
+    <div class="card my-4 py-0" x-data="tournamentScores()" x-init="init()">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Tournament Scores</span>
+            <div class="sort-key-selector" role="group">
+                <button type="button" @click="sortBy('score')" class="btn btn-sm" :class="{ 'active btn-primary': sortKey === 'score', 'btn-secondary': sortKey !== 'score' }">Score</button>
+                <button type="button" @click="sortBy('name')" class="btn btn-sm" :class="{ 'active btn-primary': sortKey === 'name', 'btn-secondary': sortKey !== 'name' }">Name</button>
+            </div>
+        </div>
+        <ul class="list-group list-group-flush">
+            <template x-for="userScore in sortedScores" :key="userScore.user_id">
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span x-text="userScore.username"></span>
+                    <span class="badge bg-primary rounded-pill" x-text="userScore.score"></span>
+                </li>
+            </template>
+        </ul>
+    </div>
+
+    {% for module_row in all_modules_data %}
+        {% include module_row.template_path with module=module_row.context.module users=module_row.context.users|default:None %}
+    {% endfor %}
+
+    <script>
+        function tournamentScores() {
+            return {
+                scores: [],
+                sortKey: 'score', // default sort
+                sortDir: 'desc',  // default dir
+                init() {
+                    // UserScore objects already have user_id, username, and score
+                    this.scores = JSON.parse(document.getElementById('tournament-scores-data').textContent);
+                },
+                sortBy(key) {
+                    if (this.sortKey === key) {
+                        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        this.sortKey = key;
+                        this.sortDir = key === 'score' ? 'desc' : 'asc';
+                    }
+                },
+                get sortedScores() {
+                    return [...this.scores].sort((a, b) => {
+                        let comparison = 0;
+                        if (this.sortKey === 'name') {
+                            comparison = (a.username || '').localeCompare(b.username || '');
+                        } else { // score
+                            comparison = a.score - b.score;
+                        }
+                        return this.sortDir === 'asc' ? comparison : -comparison;
+                    });
+                }
+            }
+        }
+
+        function statPredictionTable(moduleId) {
+            return {
+                rows: [],
+                sortKey: 'score',
+                sortDir: 'desc',
+                init() {
+                    const tableDataEl = document.getElementById(`stat-pred-rows-data-${moduleId}`);
+                    // StatPredictionTableRow objects already have user, user_uuid, predictions, and score
+                    const tableData = tableDataEl ? JSON.parse(tableDataEl.textContent) : [];
+
+                    this.rows = tableData.map((row, index) => ({
+                        ...row,
+                        key: row.user_uuid || `stat-pred-row-${index}`
+                    }));
+                },
+                sortBy(key) {
+                    if (this.sortKey === key) {
+                        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        this.sortKey = key;
+                        this.sortDir = key === 'score' ? 'desc' : 'asc';
+                    }
+                },
+                get sortedRows() {
+                    return [...this.rows].sort((a, b) => {
+                        let comparison = 0;
+                        if (this.sortKey === 'score') {
+                            const scoreA = a.score;
+                            const scoreB = b.score;
+                            if (scoreA == null && scoreB == null) return 0;
+                            if (scoreA == null) return 1;
+                            if (scoreB == null) return -1;
+                            comparison = scoreA - scoreB;
+                        } else { // sort by user
+                            comparison = (a.user || '').localeCompare(b.user || '');
+                        }
+                        return this.sortDir === 'asc' ? comparison : -comparison;
+                    });
+                }
+            }
+        }
+
+        function swissTable(moduleId) {
+            return {
+                users: JSON.parse(document.getElementById('swiss-users-data').textContent),
+                initialRows: JSON.parse(document.getElementById('swiss-rows-data').textContent),
+                initialTotals: JSON.parse(document.getElementById('swiss-totals-data').textContent),
+                userColumns: [],
+                userMap: {},
+                rows: [],
+                totals: {},
+                sortCol: 1,
+                sortDir: 'desc',
+                sortSubKey: 'points',
+                storageKey: `swiss-table-order-${moduleId}`,
+
+                init() {
+                    this.userMap = this.users.reduce((acc, user) => {
+                        acc[user.uuid] = user;
+                        return acc;
+                    }, {});
+
+                    const savedOrder = localStorage.getItem(this.storageKey);
+                    this.userColumns = savedOrder ? JSON.parse(savedOrder) : this.users.map(u => u.uuid);
+
+                    // Rows already have predictions as a dict (user_id -> PredictionCell)
+                    this.rows = this.initialRows;
+
+                    // Build totals map from UserScore objects
+                    this.totals = this.initialTotals.reduce((acc, userScore) => {
+                        acc[userScore.user_id] = userScore.score;
+                        return acc;
+                    }, {});
+
+                    this.$nextTick(() => {
+                        this.initSortable();
+                    });
+                },
+
+                initSortable() {
+                    Sortable.create(this.$refs.sortableHead, {
+                        animation: 150,
+                        items: 'th:not(.sticky-col)',
+                        onUpdate: (evt) => {
+                            const oldUserIndex = evt.oldIndex - 2;
+                            const newUserIndex = evt.newIndex - 2;
+
+                            if (oldUserIndex >= 0 && newUserIndex >= 0) {
+                                const movedItem = this.userColumns.splice(oldUserIndex, 1)[0];
+                                this.userColumns.splice(newUserIndex, 0, movedItem);
+                                localStorage.setItem(this.storageKey, JSON.stringify(this.userColumns));
+
+                                // Force Alpine to re-render the headers from scratch to avoid
+                                // conflicts with SortableJS's direct DOM manipulation.
+                                const currentOrder = [...this.userColumns];
+                                this.userColumns = [];
+                                this.$nextTick(() => {
+                                    this.userColumns = currentOrder;
+                                });
+                            }
+                        }
+                    });
+                },
+
+                parseScore(scoreStr) {
+                    if (typeof scoreStr !== 'string' || !scoreStr.includes('-')) {
+                        return -Infinity;
+                    }
+                    const parts = scoreStr.split('-').map(Number);
+                    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {
+                        return -Infinity;
+                    }
+                    return parts[0] - parts[1];
+                },
+
+                sortBy(colIndex) {
+                    if (this.sortCol === colIndex) {
+                        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        this.sortCol = colIndex;
+                        this.sortDir = (colIndex >= 1) ? 'desc' : 'asc';
+                    }
+                },
+
+                get sortedRows() {
+                    if (this.sortCol === null) {
+                        return this.rows;
+                    }
+                    return [...this.rows].sort((a, b) => {
+                        let valA, valB;
+                        if (this.sortCol === 0) { // Team Name
+                            valA = a.team_name;
+                            valB = b.team_name;
+                        } else if (this.sortCol === 1) { // Actual Result
+                            valA = this.parseScore(a.actual_result);
+                            valB = this.parseScore(b.actual_result);
+                        } else { // User predictions
+                            const userId = this.userColumns[this.sortCol - 2];
+                            if (userId === undefined) return 0;
+
+                            if (this.sortSubKey === 'points') {
+                                valA = a.predictions[userId]?.points ?? -1;
+                                valB = b.predictions[userId]?.points ?? -1;
+                            } else {
+                                valA = this.parseScore(a.predictions[userId]?.display);
+                                valB = this.parseScore(a.predictions[userId]?.display);
+                            }
+                        }
+
+                        if (valA < valB) return this.sortDir === 'asc' ? -1 : 1;
+                        if (valA > valB) return this.sortDir === 'asc' ? 1 : -1;
+                        return 0;
+                    });
+                }
+            }
+        }
+    </script>
+</div>
+{% endblock %}

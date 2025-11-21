@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load fantasy_tags %}
+
+{% block title %}{{ tournament.name }} - {{ user.username }} Predictions{% endblock %}
+
+{% block content %}
+        <!-- Header -->
+        <div class="mb-4">
+            <h1 class="display-6">{{ tournament.name }}</h1>
+            <p class="lead">
+                Predictions for <strong>{{ user.username }}</strong>
+            </p>
+            <div class="text-muted small">
+                <i class="bi bi-calendar"></i>
+                Tournament: {{ tournament.start_date|date:"M j, Y" }} - {{ tournament.end_date|date:"M j, Y" }}
+            </div>
+            {% if has_results %}
+            <div class="mt-2">
+                <a href="{% url 'tournament_combination_view' tournament.slug %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-trophy"></i> View Results
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Main Form -->
+        <form method="post" id="tournament-predictions-form">
+            {% csrf_token %}
+
+            {% if module_contexts %}
+                <!-- Module Forms --> {% for template_path, context in module_contexts %}
+                    {% dynamic_include template_path context %}
+                {% endfor %}
+
+                <!-- Submit Button -->
+                <div class="card border-primary mt-4">
+                    <div class="card-body text-center">
+                        <button type="submit" class="btn btn-primary btn-lg px-5">
+                            <i class="bi bi-check-circle"></i>
+                            Save All Predictions
+                        </button>
+                        <p class="text-muted small mt-2 mb-0">
+                            All predictions will be saved together
+                        </p>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <h5><i class="bi bi-info-circle"></i> No Modules Available</h5>
+                    <p class="mb-0">
+                        This tournament doesn't have any active modules yet.
+                    </p>
+                </div>
+            {% endif %}
+        </form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Add form submission handling
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('tournament-predictions-form');
+
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+                }
+            });
+        }
+    });
+</script>
+{% endblock extra_scripts %}

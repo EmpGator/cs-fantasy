@@ -1,0 +1,164 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls fantasy_tags %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <h2>Step {{ step }} of {{ total_steps }}: Select Modules</h2>
+
+    {% if segments %}
+    <div class="module" style="padding: 15px; margin-bottom: 20px;">
+        <h3 style="margin-top: 0;">Parsed Tournament Data ({{ segments|length }} segment{{ segments|pluralize }})</h3>
+        {% for segment in segments %}
+        <div style="{% if not forloop.last %}border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 10px; margin-bottom: 10px;{% endif %}">
+            <strong>Segment {{ forloop.counter }}:</strong> {{ segment.metadata.name|default:"Unnamed" }}
+            <table style="width: 100%; margin-top: 5px;">
+                <tr><td><strong>Teams:</strong></td><td>{{ segment.metadata.teams|length }} teams</td></tr>
+                <tr><td><strong>Players:</strong></td><td>{{ segment.metadata.players|length }} players</td></tr>
+                <tr><td><strong>Stages:</strong></td><td>{{ segment.metadata.stages|length }} stages</td></tr>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <fieldset class="module aligned">
+            <h2>Tournament Name</h2>
+            <div class="form-row">
+                <input type="text" name="name" value="{{ tournament_name }}" class="vTextField" style="width: 100%;">
+            </div>
+        </fieldset>
+
+        <fieldset class="module aligned">
+            <h2>Stages and Modules</h2>
+            <p class="quiet">Configure stages and select modules. Use arrows to reorder stages.</p>
+
+            <div id="stages-container">
+            {% for stage_data in suggested_modules %}
+            <div class="module stage-item" style="margin-bottom: 20px; padding: 15px;" data-stage-idx="{{ forloop.counter0 }}">
+                <input type="hidden" name="stage_order_{{ forloop.counter0 }}" value="{{ forloop.counter0 }}" class="stage-order">
+                <input type="hidden" name="stage_segment_{{ forloop.counter0 }}" value="{{ stage_data.segment_idx }}">
+
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <span class="drag-handle" style="cursor: grab; font-size: 1.2em;">⋮⋮</span>
+                    <button type="button" class="move-up" style="padding: 2px 8px;">↑</button>
+                    <button type="button" class="move-down" style="padding: 2px 8px;">↓</button>
+                    <strong>Stage {{ forloop.counter }}:</strong>
+                    <input type="text" name="stage_name_{{ forloop.counter0 }}" value="{{ stage_data.stage_name }}" class="vTextField" style="flex: 1;">
+                    <span class="quiet" style="font-size: 0.85em;">(Segment {{ stage_data.segment_idx|add:1 }})</span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; margin-left: 70px;">
+                    <div>
+                        <label class="quiet">Start Date:</label>
+                        <input type="datetime-local" name="stage_start_{{ forloop.counter0 }}" value="{{ stage_data.start_date }}" class="vTextField" style="width: 100%;">
+                    </div>
+                    <div>
+                        <label class="quiet">End Date:</label>
+                        <input type="datetime-local" name="stage_end_{{ forloop.counter0 }}" value="{{ stage_data.end_date }}" class="vTextField" style="width: 100%;">
+                    </div>
+                </div>
+
+                {% for module in stage_data.modules %}
+                <div style="margin-bottom: 10px; margin-left: 70px; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 4px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox"
+                               name="module_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}"
+                               value="1"
+                               {% if module.selected %}checked{% endif %}
+                               style="margin-right: 10px;">
+                        <input type="text"
+                               name="module_name_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}"
+                               value="{{ module.name }}"
+                               class="vTextField"
+                               style="flex: 1; margin-right: 10px;">
+                        <span class="quiet">
+                            {% if module.type == "swiss" %}
+                                (Swiss)
+                            {% elif module.type == "bracket" %}
+                                (Bracket)
+                            {% elif module.type == "stat_predictions" %}
+                                (Stats)
+                            {% endif %}
+                        </span>
+                    </label>
+                    <input type="hidden" name="module_type_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" value="{{ module.type }}">
+                    <input type="hidden" name="module_preset_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" value="{{ module.preset|default:'' }}">
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+                        <div>
+                            <label class="quiet" style="font-size: 0.85em;">Module Start:</label>
+                            <input type="datetime-local"
+                                   name="module_start_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}"
+                                   value="{{ stage_data.start_date }}"
+                                   class="vTextField"
+                                   style="width: 100%; font-size: 0.9em;">
+                        </div>
+                        <div>
+                            <label class="quiet" style="font-size: 0.85em;">Module End:</label>
+                            <input type="datetime-local"
+                                   name="module_end_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}"
+                                   value="{{ stage_data.end_date }}"
+                                   class="vTextField"
+                                   style="width: 100%; font-size: 0.9em;">
+                        </div>
+                    </div>
+
+                    {% if module.type == "bracket" and module.bracket_data %}
+                    <p class="quiet" style="margin: 5px 0 0 0; font-size: 0.9em;">
+                        {{ module.bracket_data.matches|length }} matches to create
+                    </p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% empty %}
+            <p class="quiet">No stages detected. Please check the HLTV URL.</p>
+            {% endfor %}
+            </div>
+        </fieldset>
+
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('stages-container');
+
+            // Move up/down buttons
+            container.addEventListener('click', function(e) {
+                if (e.target.classList.contains('move-up') || e.target.classList.contains('move-down')) {
+                    const stageItem = e.target.closest('.stage-item');
+                    const isUp = e.target.classList.contains('move-up');
+                    const sibling = isUp ? stageItem.previousElementSibling : stageItem.nextElementSibling;
+
+                    if (sibling && sibling.classList.contains('stage-item')) {
+                        if (isUp) {
+                            container.insertBefore(stageItem, sibling);
+                        } else {
+                            container.insertBefore(sibling, stageItem);
+                        }
+                        updateStageNumbers();
+                    }
+                }
+            });
+
+            function updateStageNumbers() {
+                const stages = container.querySelectorAll('.stage-item');
+                stages.forEach((stage, idx) => {
+                    const orderInput = stage.querySelector('.stage-order');
+                    if (orderInput) {
+                        orderInput.value = idx;
+                    }
+                });
+            }
+        });
+        </script>
+
+        <div class="submit-row">
+            <input type="submit" value="Next: Confirm & Create" class="default">
+            <a href="{% url 'admin:fantasy_tournament_wizard' %}" class="button">Back</a>
+            <a href="{% url 'admin:fantasy_tournament_changelist' %}" class="button cancel-link">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

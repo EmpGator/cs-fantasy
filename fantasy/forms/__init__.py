@@ -1,11 +1,15 @@
-from .core import UserRegistrationForm, UserProfileForm
-from .modules import SwissPredictionForm, BulkSwissPredictionForm
+from .base import BaseModuleForm, ModuleFormMeta
+from .core import UserProfileForm
+from .swiss import SwissModuleForm
+from .stat_predictions import StatPredictionForm
+from .registry import ModuleFormRegistry, create_module_form
 
 __all__ = [
-    # Core forms
-    "UserRegistrationForm",
+    "BaseModuleForm",
+    "ModuleFormMeta",
     "UserProfileForm",
-    # Swiss module forms
-    "SwissPredictionForm",
-    "BulkSwissPredictionForm",
+    "SwissModuleForm",
+    "StatPredictionForm",
+    "ModuleFormRegistry",
+    "create_module_form",
 ]

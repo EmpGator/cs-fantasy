@@ -1,0 +1,650 @@
+/* ============================================
+   FantasyGator - Navy Blue Dark Theme
+   ============================================ */
+
+/* ============================================
+   CSS Custom Properties (Bootstrap Overrides)
+   ============================================ */
+:root {
+  /* Primary Background Colors */
+  --bs-body-bg: #0a1929;
+  --bs-body-color: #e3e8ef;
+  --bs-emphasis-color: #f1f5f9;
+
+  /* Secondary Backgrounds */
+  --bs-secondary-bg: #0f1e2e;
+  --bs-tertiary-bg: #1a2942;
+  --bs-quaternary-bg: #243550;
+
+  /* Brand Colors */
+  --bs-primary: #2196f3;
+  --bs-primary-rgb: 33, 150, 243;
+  --bs-primary-hover: #1976d2;
+
+  --bs-secondary: #3d4e5f;
+  --bs-secondary-rgb: 61, 78, 95;
+
+  --bs-success: #10b981;
+  --bs-success-rgb: 16, 185, 129;
+
+  --bs-warning: #f59e0b;
+  --bs-warning-rgb: 245, 158, 11;
+
+  --bs-danger: #ef4444;
+  --bs-danger-rgb: 239, 68, 68;
+
+  --bs-info: #06b6d4;
+  --bs-info-rgb: 6, 182, 212;
+
+  /* Text Colors */
+  --bs-text-muted: #94a3b8;
+  --bs-text-secondary: #b8c5d6;
+
+  /* Link Colors */
+  --bs-link-color: #60a5fa;
+  --bs-link-hover-color: #93c5fd;
+
+  /* Border Colors */
+  --bs-border-color: #2d3e50;
+  --bs-border-color-translucent: rgba(45, 62, 80, 0.5);
+
+  /* Form Controls */
+  --bs-form-control-bg: #1a2942;
+  --bs-form-control-color: #e3e8ef;
+  --bs-form-control-border: #2d3e50;
+  --bs-form-control-focus-bg: #243550;
+
+  /* Component Specific */
+  --bs-card-bg: #1a2942;
+  --bs-card-border-color: #2d3e50;
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(45, 62, 80, 0.3);
+  --bs-table-hover-bg: rgba(45, 62, 80, 0.5);
+  --bs-navbar-bg: #0f1e2e;
+  --bs-footer-bg: #0f1e2e;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+body {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+.text-muted {
+  color: var(--bs-text-muted) !important;
+}
+
+.lead {
+  color: var(--bs-text-secondary);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.h1,
+.h2,
+.h3,
+.h4,
+.h5,
+.h6 {
+  color: var(--bs-emphasis-color);
+}
+
+/* ============================================
+   Navigation
+   ============================================ */
+.navbar-dark {
+  background-color: var(--bs-navbar-bg) !important;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.navbar-dark .navbar-brand {
+  color: var(--bs-primary);
+  font-weight: 600;
+}
+
+.navbar-dark .navbar-brand:hover {
+  color: var(--bs-primary-hover);
+}
+
+.navbar-dark .nav-link {
+  color: var(--bs-text-secondary);
+}
+
+.navbar-dark .nav-link:hover {
+  color: var(--bs-link-color);
+}
+
+/* ============================================
+   Cards
+   ============================================ */
+.card,
+.module-card {
+  background-color: var(--bs-card-bg);
+  border-color: var(--bs-card-border-color);
+  color: var(--bs-body-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.card-header {
+  background-color: var(--bs-secondary-bg);
+  border-bottom: 1px solid var(--bs-border-color);
+  color: var(--bs-emphasis-color);
+}
+
+.card-body {
+  background-color: var(--bs-card-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.card-text {
+  flex-grow: 1;
+}
+
+.module-card {
+  margin-bottom: 1.5rem;
+}
+
+.border-primary {
+  border-color: var(--bs-primary) !important;
+}
+
+.border-info {
+  border-color: var(--bs-info) !important;
+}
+
+/* ============================================
+   Tables
+   ============================================ */
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(45, 62, 80, 0.3);
+  --bs-table-hover-bg: rgba(45, 62, 80, 0.5);
+  --bs-table-color: var(--bs-body-color);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+.table > :not(caption) > * > * {
+  color: var(--bs-body-color);
+  border-bottom-color: var(--bs-border-color);
+}
+
+.prediction-table,
+.predictions-table {
+  color: var(--bs-body-color);
+}
+
+.prediction-table th,
+.predictions-table th {
+  background-color: #243550;
+  color: var(--bs-emphasis-color);
+  border-color: var(--bs-border-color);
+}
+
+.prediction-table td,
+.predictions-table td {
+  border-color: var(--bs-border-color);
+}
+
+.table-hover > tbody > tr:hover > * {
+  background-color: var(--bs-table-hover-bg);
+  color: var(--bs-body-color);
+}
+
+.table-danger {
+  --bs-table-bg: rgba(239, 68, 68, 0.15);
+  --bs-table-color: var(--bs-body-color);
+}
+
+.label-cell {
+  font-weight: 600;
+  color: var(--bs-emphasis-color);
+  white-space: nowrap;
+  padding-right: 15px;
+}
+
+/* ============================================
+   Forms
+   ============================================ */
+.form-control,
+.form-select {
+  background-color: var(--bs-form-control-bg);
+  color: var(--bs-form-control-color);
+  border-color: var(--bs-form-control-border);
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--bs-form-control-focus-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.25rem rgba(33, 150, 243, 0.25);
+}
+
+.form-control::placeholder {
+  color: var(--bs-text-muted);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  background-color: var(--bs-secondary-bg);
+  color: var(--bs-text-muted);
+}
+
+.prediction-select {
+  min-width: 150px;
+}
+
+.invalid-feedback {
+  color: var(--bs-danger);
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+.btn-primary {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--bs-primary-hover);
+  border-color: var(--bs-primary-hover);
+  color: #ffffff;
+}
+
+.btn-primary:focus {
+  box-shadow: 0 0 0 0.25rem rgba(33, 150, 243, 0.5);
+}
+
+.btn-outline-secondary {
+  color: var(--bs-text-secondary);
+  border-color: var(--bs-border-color);
+}
+
+.btn-outline-secondary:hover {
+  background-color: var(--bs-tertiary-bg);
+  border-color: var(--bs-border-color);
+  color: var(--bs-emphasis-color);
+}
+
+/* ============================================
+   Alerts
+   ============================================ */
+.alert {
+  border: 1px solid var(--bs-border-color);
+}
+
+.alert-info {
+  background-color: rgba(6, 182, 212, 0.15);
+  color: #7dd3fc;
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+.alert-warning {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.alert-danger {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.alert-success {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+/* ============================================
+   Badges
+   ============================================ */
+.badge {
+  font-weight: 500;
+}
+
+.badge.bg-primary {
+  background-color: var(--bs-primary) !important;
+}
+
+.badge.bg-success {
+  background-color: var(--bs-success) !important;
+}
+
+.badge.bg-warning {
+  background-color: var(--bs-warning) !important;
+  color: #000000;
+}
+
+.badge.bg-danger {
+  background-color: var(--bs-danger) !important;
+}
+
+.badge.bg-secondary {
+  background-color: #3d4e5f !important;
+}
+
+.badge.bg-info {
+  background-color: var(--bs-info) !important;
+}
+
+.text-dark {
+  color: #000000 !important;
+}
+
+/* ============================================
+   Info Sections
+   ============================================ */
+.limit-info {
+  font-size: 0.875rem;
+  color: var(--bs-text-muted);
+}
+
+.limit-exceeded {
+  color: var(--bs-danger);
+  font-weight: bold;
+}
+
+.prediction-summary {
+  position: sticky;
+  top: 20px;
+  background-color: var(--bs-card-bg);
+  border: 1px solid var(--bs-border-color);
+  padding: 1rem;
+  border-radius: 0.375rem;
+}
+
+/* ============================================
+   Team Logo
+   ============================================ */
+.team-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  margin-right: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+/* ============================================
+   Drag & Drop (Swiss Predictions)
+   ============================================ */
+.dropzone {
+  min-height: 50px;
+  border: 2px dashed var(--bs-border-color);
+  border-radius: 0.375rem;
+  padding: 10px;
+  background-color: var(--bs-secondary-bg);
+  transition: all 0.2s ease;
+}
+
+.dropzone.drag-over {
+  border-color: var(--bs-primary);
+  background-color: rgba(33, 150, 243, 0.15);
+  border-style: solid;
+}
+
+.dropzone.has-item {
+  border-color: var(--bs-success);
+  background-color: rgba(16, 185, 129, 0.15);
+  border-style: solid;
+}
+
+.draggable {
+  cursor: grab;
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.375rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.draggable:hover {
+  background-color: var(--bs-quaternary-bg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
+}
+
+.draggable.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.dropzone .draggable {
+  margin-bottom: 0;
+}
+
+.team-pool {
+  background-color: var(--bs-secondary-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.375rem;
+  padding: 15px;
+  overflow-y: auto;
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+footer,
+.bg-light {
+  background-color: var(--bs-footer-bg) !important;
+  color: var(--bs-text-muted);
+  border-top: 1px solid var(--bs-border-color);
+}
+
+/* ============================================
+   Breadcrumbs
+   ============================================ */
+.breadcrumb {
+  background-color: transparent;
+  margin-bottom: 0;
+}
+
+.breadcrumb-item a {
+  color: var(--bs-link-color);
+  text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+  color: var(--bs-link-hover-color);
+}
+
+.breadcrumb-item.active {
+  color: var(--bs-text-muted);
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+  color: var(--bs-text-muted);
+}
+
+/* ============================================
+   Loading States
+   ============================================ */
+.loading-spinner {
+  display: none;
+}
+
+.spinner-border {
+  border-color: currentColor;
+  border-right-color: transparent;
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+.bg-opacity-10 {
+  opacity: 1 !important;
+}
+
+.bg-info.bg-opacity-10 {
+  background-color: rgba(6, 182, 212, 0.15) !important;
+}
+
+.text-info {
+  color: #7dd3fc !important;
+}
+
+.text-success {
+  color: #6ee7b7 !important;
+}
+
+.text-warning {
+  color: #fbbf24 !important;
+}
+
+.text-danger {
+  color: #fca5a5 !important;
+}
+
+.text-md-end {
+  text-align: right;
+}
+
+/* ============================================
+   Shadows
+   ============================================ */
+.shadow-sm {
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.5) !important;
+}
+
+.shadow {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ============================================
+   Scrollbar Styling (Optional)
+   ============================================ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bs-secondary-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bs-border-color);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3d4e5f;
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+@media (max-width: 768px) {
+  .team-pool {
+    max-height: 400px;
+  }
+
+  .prediction-summary {
+    position: static;
+  }
+}
+
+/* ============================================
+
+   Tom Select Overrides
+
+   ============================================ */
+
+.ts-dropdown {
+  background-color: var(--bs-tertiary-bg);
+
+  border-color: var(--bs-border-color);
+}
+
+/*
+
+  This is the main fix. The TomSelect-Bootstrap5 theme may add the .dropdown-item
+
+  class to options, which has a default dark color. We must override it with
+
+  high specificity to ensure readability in the dark theme.
+
+*/
+
+.ts-dropdown .ts-dropdown-content .option,
+.ts-dropdown .ts-dropdown-content .dropdown-item {
+  color: var(--bs-body-color) !important;
+}
+
+.ts-dropdown .option.active,
+.ts-dropdown .option:hover,
+.ts-dropdown .dropdown-item.active,
+.ts-dropdown .dropdown-item:hover {
+  background-color: var(--bs-primary);
+
+  color: #ffffff !important; /* Ensure text is white on hover/active */
+}
+
+.ts-dropdown .optgroup-header {
+  font-weight: 600;
+
+  color: var(--bs-text-muted);
+}
+
+.ts-control .item {
+  color: #ffffff;
+}
+
+.prediction-label {
+  background-color: rgba(0, 0, 0, 0.7); /* Solid black for maximum visibility */
+  color: white; /* White text for contrast */
+  padding: 2px 8px;
+  border-radius: 12px; /* Rounded corners */
+  font-weight: bold;
+  display: inline-block; /* Ensures padding and border-radius work correctly */
+  min-width: 40px; /* Ensure a minimum width for consistency */
+  text-align: center; /* Center the text */
+}
+
+/* ============================================
+   Custom Additions
+   ============================================ */
+.tournament-scores-fixed {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  background-color: var(--bs-body-bg);
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+/* ============================================
+   Container Width Override
+   ============================================ */
+@media (min-width: 1600px) {
+  .container,
+  .container-lg,
+  .container-md,
+  .container-sm,
+  .container-xl,
+  .container-xxl {
+    max-width: 1600px;
+  }
+}

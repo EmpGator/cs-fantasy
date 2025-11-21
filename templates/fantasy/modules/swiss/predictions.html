@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{{ module.name }} - Predictions{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Home</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Predictions</li>
+      </ol>
+    </nav>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-12">
+    <h1 class="display-6">
+      <i class="bi bi-trophy"></i> {{ module.name }}
+    </h1>
+    <p class="lead text-muted">Make your predictions by dragging teams to the appropriate slots</p>
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+
+  {% include 'fantasy/components/swiss_prediction_form.html' with module=module options=options unpredicted_teams=unpredicted_teams %}
+
+  <div class="card border-primary mt-4">
+    <div class="card-body text-center">
+      <button type="submit" class="btn btn-primary btn-lg px-5">
+        <i class="bi bi-check-circle"></i> Save Predictions
+      </button>
+      <p class="text-muted small mt-2 mb-0">
+        Make sure all slots are filled before submitting
+      </p>
+    </div>
+  </div>
+</form>
+{% endblock %}

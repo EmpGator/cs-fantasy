@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +21,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-jj_emia7n(qbm5n2sv2m!g_af*1@lg1b8ichs**k+*)+6ae^1t"
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=Csv())
+
+# Security settings for production behind proxy
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='', cast=Csv())
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Increase for complex admin forms with many nested inlines
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000
 
 
 # Application definition
@@ -33,23 +41,27 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
+    "polymorphic",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_extensions",
     "crispy_forms",
     "crispy_bootstrap5",
-    "django_htmx",
+    "django_jsonform",
+    "django_q",
+    "nested_admin",
     "fantasy",
 ]
 
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
-    "django_htmx.middleware.HtmxMiddleware",  # Add this line
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -83,11 +95,11 @@ WSGI_APPLICATION = "cs_fantasy.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "cs_fantasy_db",
-        "USER": "your_db_user",
-        "PASSWORD": "your_db_password",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "NAME": config('DATABASE_NAME', default='cs_fantasy_db'),
+        "USER": config('DATABASE_USER', default='postgres'),
+        "PASSWORD": config('DATABASE_PASSWORD', default=''),
+        "HOST": config('DATABASE_HOST', default='localhost'),
+        "PORT": config('DATABASE_PORT', default='5432'),
     }
 }
 
@@ -135,7 +147,46 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Cache Configuration
+REDIS_URL = config('REDIS_URL', default='redis://127.0.0.1:6379')
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f'{REDIS_URL}/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'cs_fantasy',
+        'TIMEOUT': 300,  # Default 5 minutes
+    }
+}
+
+# Django-Q Configuration
+# Parse Redis URL for Django-Q
+import urllib.parse
+_redis_parsed = urllib.parse.urlparse(REDIS_URL)
+Q_CLUSTER = {
+    'name': 'cs_fantasy',
+    'workers': 4,
+    'recycle': 500,
+    'timeout': 300,
+    'retry': 360,
+    'queue_limit': 50,
+    'bulk': 10,
+    'redis': {
+        'host': _redis_parsed.hostname or '127.0.0.1',
+        'port': _redis_parsed.port or 6379,
+        'db': 0,  # Use db 0 for Django-Q (cache uses db 1)
+    }
+}

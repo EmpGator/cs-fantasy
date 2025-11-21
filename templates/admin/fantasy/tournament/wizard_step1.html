@@ -1,0 +1,51 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <h2>Step {{ step }} of {{ total_steps }}: Enter Tournament URL</h2>
+
+    <div class="module" style="padding: 15px; margin-bottom: 20px;">
+        <p>Enter the HLTV event URL to automatically fetch tournament information.</p>
+        <p><strong>Example:</strong> <code>https://www.hltv.org/events/1234/tournament-name</code></p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <div>
+                    <label for="id_hltv_url">{{ form.hltv_url.label }}</label>
+                    {{ form.hltv_url }}
+                    {% if form.hltv_url.help_text %}
+                        <p class="help">{{ form.hltv_url.help_text }}</p>
+                    {% endif %}
+                    {% if form.hltv_url.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.hltv_url.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label for="id_additional_urls">{{ form.additional_urls.label }}</label>
+                    {{ form.additional_urls }}
+                    {% if form.additional_urls.help_text %}
+                        <p class="help">{{ form.additional_urls.help_text }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Next: Select Format" class="default">
+            <a href="{% url 'admin:fantasy_tournament_changelist' %}" class="button cancel-link">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

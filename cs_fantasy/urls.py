@@ -18,7 +18,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
+# Import custom grouped admin site
+from fantasy.admin import grouped_admin_site
+
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("_nested_admin/", include("nested_admin.urls")),
+    path("admin/", grouped_admin_site.urls),  # Use custom admin site
     path("", include("fantasy.urls")),
 ]

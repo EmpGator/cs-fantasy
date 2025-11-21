@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}{{ module.name }} - Bracket Predictions{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Home</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Bracket Predictions</li>
+      </ol>
+    </nav>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-12">
+    <h1 class="display-6">
+      <i class="bi bi-diagram-3"></i> {{ module.name }}
+    </h1>
+    <p class="lead text-muted">Predict the winner of each match to fill out the bracket.</p>
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger" role="alert">
+        {% for error in form.non_field_errors %}
+            <p class="mb-0">{{ error }}</p>
+        {% endfor %}
+    </div>
+  {% endif %}
+
+  {% include 'fantasy/components/bracket_prediction_form.html' %}
+
+  <div class="card border-primary mt-4">
+    <div class="card-body text-center">
+      <button type="submit" class="btn btn-primary btn-lg px-5">
+        <i class="bi bi-check-circle"></i> Save Predictions
+      </button>
+      <p class="text-muted small mt-2 mb-0">
+        Make sure all predictions are filled before submitting.
+      </p>
+    </div>
+  </div>
+</form>
+{% endblock %}

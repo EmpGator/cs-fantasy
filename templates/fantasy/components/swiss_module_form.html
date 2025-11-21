@@ -1,0 +1,166 @@
+<!-- Swiss Module Form Component with AlpineJS Support -->
+<div class="card module-card mb-4" >
+    <!-- Module Header -->
+    <div class="card-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5 class="mb-1">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                    {{ module.name }}
+                </h5>
+                {% if module.description %}
+                <p class="mb-0 text-muted small">{{ module.description }}</p>
+                {% endif %}
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="small">
+                    {% if module.is_completed %}
+                    <span class="badge bg-success">
+                        <i class="bi bi-check-circle"></i> Completed
+                    </span>
+                    {% else %} {% if not module.is_past_deadline %}
+                    <span class="badge bg-primary">
+                        <i class="bi bi-hourglass-split"></i> Active
+                    </span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark">
+                        <i class="bi bi-exclamation-triangle"></i> Deadline
+                        Passed
+                    </span>
+                    {% endif %} {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Module Metadata -->
+        <div class="row mt-2 small text-muted">
+            <div class="col-md-6">
+                <i class="bi bi-calendar-event"></i>
+                Deadline: {{ module.prediction_deadline|date:"M j, Y H:i" }}
+            </div>
+            <div class="col-md-6">
+                <i class="bi bi-clock"></i>
+                {{ module.start_date|date:"M j" }} - {{ module.end_date|date:"M j, Y" }}
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body">
+        {% if teams_data %}
+        <!-- Module Limits Info with Live Updates -->
+        <div class="alert alert-info py-2 mb-3">
+            <div class="row">
+                <div class="col-md-8">
+                    <small>
+                        <strong>Module Limits:</strong>
+                        {% for score_obj in scores %}
+                        <span class="me-3">
+                            {{ score_obj.score }}:
+                            <span :class="getUsageColor('{{ score_obj.score }}')">
+                                <span x-text="usage['{{ score_obj.score }}'] || 0">0</span>
+                            </span>
+                            / <strong>{{ score_obj.limit_per_user }}</strong>
+                        </span>
+                        {% endfor %}
+                    </small>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <small>
+                        <i class="bi bi-list-check"></i>
+                        {{ teams_data|length }} teams
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Errors -->
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger alert-dismissible fade show">
+            <strong>Error:</strong>
+            {% for error in form.non_field_errors %} {{ error }} {% endfor %}
+            <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+            ></button>
+        </div>
+        {% endif %}
+
+        <!-- Team Predictions Table -->
+        <div class="table-responsive">
+            <table class="table table-sm table-hover prediction-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40%">Team</th>
+                        <th style="width: 50%">Predicted Score</th>
+                        <th style="width: 10%"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for field in form %}
+                    <tr {% if field.errors %}class="table-danger" {% endif %}>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <span class="fw-medium">{{ field.label }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            {{ field }} {% if field.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in field.errors %}
+                                <small>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if field.value %}
+                            <span
+                                class="badge bg-success"
+                                title="Prediction made"
+                            >
+                                <i class="bi bi-check"></i>
+                            </span>
+                            {% else %}
+                            <span
+                                class="badge bg-secondary"
+                                title="No prediction"
+                            >
+                                <i class="bi bi-dash"></i>
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Module Status Footer -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="small text-muted">
+                        {% if module.is_completed %}
+                        <i class="bi bi-check-circle text-success"></i>
+                        This module has been completed. Results are available.
+                        {% else %} {% if module.prediction_deadline > now %}
+                        <i class="bi bi-info-circle text-primary"></i>
+                        Predictions close on {{
+                        module.prediction_deadline|date:"M j, Y \a\t H:i" }} {%
+                        else %}
+                        <i class="bi bi-exclamation-triangle text-warning"></i>
+                        Prediction deadline has passed. {% endif %} {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- No Teams -->
+        <div class="alert alert-warning">
+            <h6><i class="bi bi-exclamation-circle"></i> No Teams Assigned</h6>
+            <p class="mb-0">This module doesn't have any teams assigned yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>

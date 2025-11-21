@@ -1,0 +1,240 @@
+<style>
+    .grid-item-group .card-header {
+        background-color: rgba(0, 0, 0, 0.2) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+
+    .group-cell-list {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 5px;
+        gap: 5px;
+    }
+
+    .group-cell-list[data-direction="row"] {
+        flex-direction: row;
+    }
+
+    .group-cell-list[data-direction="column"] {
+        flex-direction: column;
+    }
+
+    .group-cell {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        border-radius: 4px;
+        flex: 1;
+        min-width: 140px;
+    }
+
+    .dropzone {
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 5px;
+        border: 1px dashed rgba(255, 255, 255, 0.4);
+        border-radius: 4px;
+        transition: background-color 0.2s ease;
+    }
+
+    .dropzone.drag-over {
+        background-color: rgba(255, 255, 255, 0.3);
+        border-style: solid;
+    }
+
+    .draggable {
+        background-color: #2c3e50; /* Dark, navy-like blue */
+        color: #fff; /* White text */
+        padding: 2px 8px; /* Reduced padding */
+        border-radius: 4px;
+        width: 100%;
+        text-align: left; /* Left aligned */
+        cursor: grab;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+</style>
+
+<div x-data="dragDrop()" class="container-fluid py-4">
+    <div class="row g-4">
+        <!-- Predictions Table -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-ol"></i>
+                        Predictions for {{ module.name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Instructions:</strong> Drag teams from the right
+                        panel into the prediction slots below.
+                    </div>
+
+                    {% for grid in options %}
+                    <div class="grid-container"
+                        style="display: grid; gap: 15px; grid-template-columns: repeat({{ grid.grid_columns }}, 1fr); grid-template-rows: repeat({{ grid.grid_rows }}, auto);">
+                        {% for group in grid.grid_items %}
+                        <div class="card shadow-sm grid-item-group"
+                            style="grid-row-start: {{ group.row_start }}; grid-row-end: {{ group.row_end }}; grid-column-start: {{ group.col_start }}; grid-column-end: {{ group.col_end }}; background-color: {{ group.background_color }};">
+                            <div class="card-header text-white">
+                                <strong>{{ group.group_id }}</strong>
+                                <small>({{ group.cells|length }} slots)</small>
+                            </div>
+                            <div class="group-cell-list" data-direction="{{ group.flex_direction }}">
+                                {% for cell in group.cells %}
+                                <div class="group-cell">
+                                    <div class="dropzone"
+                                        @drop="drop($event)"
+                                        @dragover.prevent="dragOver($event)"
+                                        @dragleave="dragLeave($event)"
+                                        data-label="{{ cell.label }}">
+                                        <input type="hidden"
+                                            name="module_{{ module.id }}-{{ cell.score_id }}_{{ cell.order }}"
+                                            value="{{ cell.predicted_team.id }}" />
+                                        {% if cell.predicted_team %}
+                                        <div class="draggable" draggable="true" @dragstart="dragStart($event)"
+                                            @dragend="dragEnd($event)" data-value="{{ cell.predicted_team.id }}">
+                                            <i class="bi bi-grip-vertical me-2"></i>
+                                            {{ cell.predicted_team.name }}
+                                        </div>
+                                        {% else %}
+                                        <div class="text-white small opacity-75" x-show="!$el.closest('.dropzone').querySelector('.draggable')">
+                                            <!---
+                                            <i class="bi bi-hand-index"></i>
+                                            Drop team
+                                            -->
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if not forloop.last %}<hr class="my-4">{% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Pool -->
+        <div class="col-lg-3">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-people-fill"></i> Available Teams
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="team-pool" id="teamPool_{{ module.id }}">
+                        {% for team in unpredicted_teams %}
+                        <div class="draggable" draggable="true" @dragstart="dragStart($event)"
+                            @dragend="dragEnd($event)" data-value="{{team.id}}">
+                            <i class="bi bi-grip-vertical me-2"></i>{{team.name}}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function dragDrop() {
+        return {
+            dragged: null,
+            draggedElement: null,
+
+            dragStart(event) {
+                this.dragged = event.target.dataset.value;
+                this.draggedElement = event.target;
+                event.target.classList.add("dragging");
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", this.dragged);
+            },
+
+            dragEnd(event) {
+                if (event.target) {
+                    event.target.classList.remove("dragging");
+                }
+                document.querySelectorAll(".dropzone").forEach((zone) => {
+                    zone.classList.remove("drag-over");
+                });
+            },
+
+            dragOver(event) {
+                event.preventDefault();
+                const target = event.target.closest(".dropzone");
+                if (target) {
+                    target.classList.add("drag-over");
+                }
+            },
+
+            dragLeave(event) {
+                const target = event.target.closest(".dropzone");
+                if (target && !target.contains(event.relatedTarget)) {
+                    target.classList.remove("drag-over");
+                }
+            },
+
+            drop(event) {
+                event.preventDefault();
+                const targetZone = event.target.closest(".dropzone");
+                if (!targetZone) return;
+
+                targetZone.classList.remove("drag-over");
+                const draggedEl = this.draggedElement;
+                if (!draggedEl) return;
+
+                const sourceZone = draggedEl.parentElement;
+                const itemInTarget = targetZone.querySelector(".draggable");
+
+                if (draggedEl === itemInTarget) {
+                    return; // Dropped on itself, do nothing.
+                }
+
+                // Update target zone
+                targetZone.appendChild(draggedEl);
+                const targetInput = targetZone.querySelector("input");
+                if (targetInput) targetInput.value = draggedEl.dataset.value;
+
+                // If target zone had an item, move it to the source zone
+                if (itemInTarget) {
+                    sourceZone.appendChild(itemInTarget);
+                    if (sourceZone.classList.contains("dropzone")) {
+                        const sourceInput = sourceZone.querySelector("input");
+                        if (sourceInput) sourceInput.value = itemInTarget.dataset.value;
+                    }
+                } else {
+                    // Target zone was empty, so if source was a dropzone, its input must be cleared.
+                    if (sourceZone.classList.contains("dropzone")) {
+                        const sourceInput = sourceZone.querySelector("input");
+                        if (sourceInput) sourceInput.value = "";
+                    }
+                }
+            },
+
+            resetAll() {
+                const teamPool = document.getElementById(
+                    "teamPool_{{ module.id }}",
+                );
+                const allDraggables = this.$el.querySelectorAll(".draggable");
+
+                allDraggables.forEach((draggable) => {
+                    teamPool.appendChild(draggable);
+                });
+
+                this.$el
+                    .querySelectorAll(".dropzone input")
+                    .forEach((input) => {
+                        input.value = "";
+                    });
+            },
+        };
+    }
+</script>

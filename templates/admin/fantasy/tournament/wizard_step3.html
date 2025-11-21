@@ -1,0 +1,67 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <h2>Step {{ step }} of {{ total_steps }}: Confirm & Create</h2>
+
+    <div class="module" style="padding: 15px; margin-bottom: 20px;">
+        <h3 style="margin-top: 0;">Ready to Create Tournament</h3>
+        <p>Review the configuration below and click "Create Tournament" to proceed.</p>
+    </div>
+
+    <fieldset class="module aligned">
+        <h2>Tournament: {{ tournament_name }}</h2>
+
+        <h3>Stages and Modules</h3>
+        {% for stage_data in selected_modules %}
+        <div class="module" style="margin-left: 20px; margin-bottom: 15px; padding: 10px;">
+            <h4 style="margin: 0 0 5px;">Stage {{ forloop.counter }}: {{ stage_data.stage_name }}</h4>
+            {% if stage_data.custom_start or stage_data.custom_end %}
+            <p class="quiet" style="margin: 0 0 10px; font-size: 0.85em;">
+                {% if stage_data.custom_start %}{{ stage_data.custom_start }}{% endif %}
+                {% if stage_data.custom_start and stage_data.custom_end %} — {% endif %}
+                {% if stage_data.custom_end %}{{ stage_data.custom_end }}{% endif %}
+            </p>
+            {% endif %}
+            <ul style="margin: 0; padding-left: 20px;">
+                {% for module in stage_data.modules %}
+                <li>
+                    <strong>{{ module.name }}</strong>
+                    <span class="quiet">
+                        {% if module.type == "swiss" %}
+                            (Swiss)
+                        {% elif module.type == "bracket" %}
+                            (Bracket)
+                        {% elif module.type == "stat_predictions" %}
+                            (Stats - Dream Team)
+                        {% endif %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+
+        {% if segments %}
+        <h3>Segments ({{ segments|length }})</h3>
+        {% for segment in segments %}
+        <div class="module" style="margin-left: 20px; margin-bottom: 10px; padding: 10px;">
+            <strong>Segment {{ forloop.counter }}:</strong>
+            {{ segment.teams|length }} teams, {{ segment.players|length }} players
+        </div>
+        {% endfor %}
+        {% endif %}
+    </fieldset>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="submit-row">
+            <input type="submit" value="Create Tournament" class="default" style="background: #28a745;">
+            <a href="{% url 'admin:fantasy_tournament_wizard_step2' %}" class="button">Back</a>
+            <a href="{% url 'admin:fantasy_tournament_changelist' %}" class="button cancel-link">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
