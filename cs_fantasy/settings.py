@@ -188,5 +188,6 @@ Q_CLUSTER = {
         'host': _redis_parsed.hostname or '127.0.0.1',
         'port': _redis_parsed.port or 6379,
         'db': 0,  # Use db 0 for Django-Q (cache uses db 1)
+        'password': _redis_parsed.password,
     }
 }
