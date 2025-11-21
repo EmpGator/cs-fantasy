@@ -6,7 +6,6 @@ certifi==2025.10.5
 cffi==2.0.0
 charset-normalizer==3.4.4
 click==8.3.0
-cloudscraper @ git+https://github.com/VeNoMouS/cloudscraper.git@9ea528a8675f1bebd49ff853d142e94988a95178
 colorama==0.4.6
 crispy-bootstrap5==2025.6
 cryptography==46.0.3
