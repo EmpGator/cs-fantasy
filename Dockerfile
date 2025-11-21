@@ -21,6 +21,6 @@ COPY . .
 # Collect static files
 RUN python manage.py collectstatic --noinput
 
-EXPOSE 8000
+EXPOSE 7000
 
-CMD ["gunicorn", "cs_fantasy.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "cs_fantasy.wsgi:application", "--bind", "0.0.0.0:7000"]
