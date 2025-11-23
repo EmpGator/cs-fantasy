@@ -638,13 +638,13 @@ footer,
 /* ============================================
    Container Width Override
    ============================================ */
-@media (min-width: 1600px) {
+@media (min-width: 1700px) {
   .container,
   .container-lg,
   .container-md,
   .container-sm,
   .container-xl,
   .container-xxl {
-    max-width: 1600px;
+    max-width: 1650px;
   }
 }

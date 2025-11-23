@@ -3,6 +3,7 @@ hall of fame
 swiss stage result table sort only works for points, not scores
 show some sort of result summary in landing page
 tournament creation wizard fails to create bracket matches
+sometimes when clearing dream team input, reserverd teams/players are not cleared correctly
 
 Workflow concept:
 
