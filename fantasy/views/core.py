@@ -457,30 +457,37 @@ def _process_stat_prediction_module(module, users):
             )
         )
 
-    max_results_to_show = 3
-    for i in range(max_results_to_show):
-        predictions = []
-        for category in categories_queryset:
-            results = []
-            if hasattr(category, "result"):
-                results = category.result.results
+    # Only show result rows if at least one category has results
+    has_any_results = any(
+        hasattr(category, "result") and category.result.results
+        for category in categories_queryset
+    )
 
-            if i < len(results):
-                display = results[i].get("name", "-")
-            else:
-                display = "-"
+    if has_any_results:
+        max_results_to_show = 3
+        for i in range(max_results_to_show):
+            predictions = []
+            for category in categories_queryset:
+                results = []
+                if hasattr(category, "result"):
+                    results = category.result.results
 
-            # Result rows don't have points
-            predictions.append(StatPredictionCell(display=display, points=0, color=""))
+                if i < len(results):
+                    display = results[i].get("name", "-")
+                else:
+                    display = "-"
 
-        table_data.append(
-            StatPredictionTableRow(
-                user=f"Top {i + 1}",
-                user_uuid=None,  # Result rows don't have user UUIDs
-                predictions=predictions,
-                score=None,
+                # Result rows don't have points
+                predictions.append(StatPredictionCell(display=display, points=0, color=""))
+
+            table_data.append(
+                StatPredictionTableRow(
+                    user=f"Top {i + 1}",
+                    user_uuid=None,  # Result rows don't have user UUIDs
+                    predictions=predictions,
+                    score=None,
+                )
             )
-        )
 
     score_map = {}
     for user in users:
@@ -690,17 +697,22 @@ def _process_bracket_module(module, users):
 
 def tournament_combination_view(request, tournament_slug):
     tournament_model = get_object_or_404(Tournament, slug=tournament_slug)
+    now = timezone.now()
 
+    # Only show modules where prediction deadline has passed
     swiss_modules = SwissModule.objects.filter(
-        tournament=tournament_model, is_completed=True
+        tournament=tournament_model,
+        prediction_deadline__lt=now,
     ).prefetch_related("teams", "results", "predictions")
 
     stat_predictions_modules = StatPredictionsModule.objects.filter(
-        tournament=tournament_model, is_completed=True
+        tournament=tournament_model,
+        prediction_deadline__lt=now,
     ).prefetch_related("definitions")
 
     bracket_modules = Bracket.objects.filter(
-        tournament=tournament_model, is_completed=True
+        tournament=tournament_model,
+        prediction_deadline__lt=now,
     )
 
     predicted_user_ids = set()
