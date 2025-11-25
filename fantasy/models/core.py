@@ -197,6 +197,11 @@ class Stage(NamedMixin, ActiveMixin, TimestampMixin, CompletionMixin):
         null=True,
         help_text="HLTV tournament page URL (e.g., https://www.hltv.org/events/7148/...)",
     )
+    hltv_event_id = models.IntegerField(
+        blank=True,
+        null=True,
+        help_text="HLTV event ID extracted from hltv_url (for URL template substitution)",
+    )
     order = models.IntegerField(default=0)
     start_date = models.DateTimeField(null=True)
     end_date = models.DateTimeField(null=True)
@@ -207,6 +212,15 @@ class Stage(NamedMixin, ActiveMixin, TimestampMixin, CompletionMixin):
         blank=True,
         related_name="previous_stages",
     )
+
+    def save(self, *args, **kwargs):
+        if self.hltv_url and not self.hltv_event_id:
+            import re
+
+            match = re.search(r"/events/(\d+)/", self.hltv_url)
+            if match:
+                self.hltv_event_id = int(match.group(1))
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ["tournament", "created_at"]

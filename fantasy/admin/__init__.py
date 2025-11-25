@@ -3,7 +3,9 @@ Admin configuration for Fantasy app.
 
 Models are registered with a custom grouped admin site for better organization.
 """
+
 from .site import grouped_admin_site
+from . import django_q
 from .core import PlayerAdmin, TeamAdmin, TournamentAdmin, UserAdmin
 from .stat_predictions import (
     StatPredictionAdmin,

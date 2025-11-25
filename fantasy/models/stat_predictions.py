@@ -188,7 +188,9 @@ class StatPredictionsModule(BaseModule):
 
             if result:
                 if prediction.definition.scoring_rule:
-                    rules = prediction.definition.scoring_rule.scoring_config.get("rules", [])
+                    rules = prediction.definition.scoring_rule.scoring_config.get(
+                        "rules", []
+                    )
                 else:
                     rules = self.scoring_config.get("rules", [])
 
@@ -337,11 +339,14 @@ class StatPredictionDefinition(models.Model):
     def save(self, *args, **kwargs):
         # Auto-populate source_url from category template if empty
         if not self.source_url and self.category.url_template:
-            tournament = self.module.tournament
-            if tournament.hltv_event_id:
-                self.source_url = self.category.url_template.format(
-                    event_id=tournament.hltv_event_id
-                )
+            event_id = None
+            if self.module.stage and self.module.stage.hltv_event_id:
+                event_id = self.module.stage.hltv_event_id
+            elif self.module.tournament.hltv_event_id:
+                event_id = self.module.tournament.hltv_event_id
+
+            if event_id:
+                self.source_url = self.category.url_template.format(event_id=event_id)
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -30,9 +30,16 @@ class StatPredictionsModuleInline(nested_admin.NestedStackedInline):
     extra = 0
     show_change_link = True
     fields = [
-        "name", "stage", "start_date", "end_date", "prediction_deadline",
-        "is_active", "is_completed", "blocking_advancement",
-        "max_picks_per_player", "max_players_per_team"
+        "name",
+        "stage",
+        "start_date",
+        "end_date",
+        "prediction_deadline",
+        "is_active",
+        "is_completed",
+        "blocking_advancement",
+        "max_picks_per_player",
+        "max_players_per_team",
     ]
     inlines = [StatPredictionDefinitionNestedInline]
 
@@ -67,6 +74,7 @@ class StatPredictionsModuleAdmin(ModuleStageAdminMixin, admin.ModelAdmin):
     ordering = ["-start_date"]
     inlines = [StatPredictionDefinitionInline]
     readonly_fields = ["scoring_config"]
+    actions = ["regenerate_definition_urls"]
 
     fieldsets = (
         (None, {"fields": ("name", "tournament", "stage")}),
@@ -76,6 +84,54 @@ class StatPredictionsModuleAdmin(ModuleStageAdminMixin, admin.ModelAdmin):
         ("Scoring", {"fields": ("scoring_config",)}),
     )
 
+    @admin.action(description="Regenerate definition source URLs from stage/tournament")
+    def regenerate_definition_urls(self, request, queryset):
+        """Regenerate source URLs for all definitions in selected modules."""
+        from django.contrib import messages
+
+        updated_count = 0
+        skipped_count = 0
+
+        for module in queryset.select_related("stage", "tournament"):
+            definitions = module.definitions.select_related("category").all()
+
+            for definition in definitions:
+                category = definition.category
+
+                if not category.url_template:
+                    skipped_count += 1
+                    continue
+
+                event_id = None
+                if module.stage and module.stage.hltv_event_id:
+                    event_id = module.stage.hltv_event_id
+                elif module.tournament.hltv_event_id:
+                    event_id = module.tournament.hltv_event_id
+
+                if event_id:
+                    new_url = category.url_template.format(event_id=event_id)
+                    if definition.source_url != new_url:
+                        definition.source_url = new_url
+                        definition.save(update_fields=["source_url"])
+                        updated_count += 1
+                    else:
+                        skipped_count += 1
+                else:
+                    skipped_count += 1
+
+        if updated_count > 0:
+            self.message_user(
+                request,
+                f"Successfully updated {updated_count} definition URL(s). Skipped {skipped_count}.",
+                messages.SUCCESS,
+            )
+        else:
+            self.message_user(
+                request,
+                f"No URLs needed updating. Skipped {skipped_count} definition(s).",
+                messages.WARNING,
+            )
+
 
 @admin.register(StatPredictionScoringRule)
 class StatPredictionScoringRuleAdmin(admin.ModelAdmin):
@@ -84,16 +140,17 @@ class StatPredictionScoringRuleAdmin(admin.ModelAdmin):
     ordering = ["name"]
 
     fieldsets = (
-        (None, {
-            "fields": ("name", "description")
-        }),
-        ("Scoring Configuration", {
-            "fields": ("rules", "validation_status"),
-            "description": (
-                "Define scoring rules using the scoring engine format. "
-                "The configuration is automatically validated on save."
-            )
-        }),
+        (None, {"fields": ("name", "description")}),
+        (
+            "Scoring Configuration",
+            {
+                "fields": ("rules", "validation_status"),
+                "description": (
+                    "Define scoring rules using the scoring engine format. "
+                    "The configuration is automatically validated on save."
+                ),
+            },
+        ),
     )
 
     readonly_fields = ["validation_status"]
@@ -101,7 +158,10 @@ class StatPredictionScoringRuleAdmin(admin.ModelAdmin):
     def validation_status(self, obj):
         """Display validation status of the scoring rules."""
         from django.utils.html import format_html
-        from fantasy.utils.scoring_schema import validate_scoring_config, format_validation_errors
+        from fantasy.utils.scoring_schema import (
+            validate_scoring_config,
+            format_validation_errors,
+        )
 
         if not obj.pk:
             return "Not yet saved"
@@ -117,7 +177,7 @@ class StatPredictionScoringRuleAdmin(admin.ModelAdmin):
             return format_html(
                 '<span style="color: red; font-weight: bold;">✗ Invalid</span>'
                 '<pre style="background: #fee; padding: 10px; border-radius: 4px; margin-top: 10px;">{}</pre>',
-                error_text
+                error_text,
             )
 
     validation_status.short_description = "Validation Status"
@@ -125,6 +185,7 @@ class StatPredictionScoringRuleAdmin(admin.ModelAdmin):
     def is_valid(self, obj):
         """Show validation status in list view."""
         from fantasy.utils.scoring_schema import validate_scoring_config
+
         is_valid, _ = validate_scoring_config(obj.scoring_config)
         return is_valid
 
@@ -145,24 +206,35 @@ class StatPredictionCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(StatPredictionDefinition)
 class StatPredictionDefinitionAdmin(admin.ModelAdmin):
-    list_display = ["title", "module", "category", "scoring_rule", "invert_results", "source_url"]
+    list_display = [
+        "title",
+        "module",
+        "category",
+        "scoring_rule",
+        "invert_results",
+        "source_url",
+    ]
     list_filter = ["module__tournament", "category", "module", "invert_results"]
     search_fields = ["title", "module__name", "category__name"]
     ordering = ["module", "title"]
     filter_horizontal = ["options"]
 
     fieldsets = (
-        (None, {
-            "fields": ("module", "category", "title", "options")
-        }),
-        ("HLTV Integration", {
-            "fields": ("source_url", "invert_results"),
-            "description": "Configure how results are fetched and processed from HLTV"
-        }),
-        ("Scoring", {
-            "fields": ("scoring_rule", "scoring_rule_preview"),
-            "description": "Scoring configuration (overrides module-level scoring if set)"
-        }),
+        (None, {"fields": ("module", "category", "title", "options")}),
+        (
+            "HLTV Integration",
+            {
+                "fields": ("source_url", "invert_results"),
+                "description": "Configure how results are fetched and processed from HLTV",
+            },
+        ),
+        (
+            "Scoring",
+            {
+                "fields": ("scoring_rule", "scoring_rule_preview"),
+                "description": "Scoring configuration (overrides module-level scoring if set)",
+            },
+        ),
     )
 
     readonly_fields = ["scoring_rule_preview"]
@@ -179,7 +251,7 @@ class StatPredictionDefinitionAdmin(admin.ModelAdmin):
             rules_json = json.dumps(obj.scoring_rule.scoring_config, indent=2)
             return format_html(
                 '<pre style="background: #f5f5f5; padding: 10px; border-radius: 4px;">{}</pre>',
-                rules_json
+                rules_json,
             )
         except Exception as e:
             return f"Error displaying rules: {e}"
@@ -197,8 +269,8 @@ class StatPredictionDefinitionAdmin(admin.ModelAdmin):
         """Prepopulate source_url when adding new definition"""
         initial = super().get_changeform_initial_data(request)
 
-        module_id = request.GET.get('module')
-        category_id = request.GET.get('category')
+        module_id = request.GET.get("module")
+        category_id = request.GET.get("category")
 
         if module_id and category_id:
             try:
@@ -207,13 +279,21 @@ class StatPredictionDefinitionAdmin(admin.ModelAdmin):
                 module = StatPredictionsModule.objects.get(id=module_id)
                 category = StatPredictionCategory.objects.get(id=category_id)
 
-                if category.url_template and module.tournament.hltv_event_id:
-                    initial['source_url'] = category.url_template.format(
-                        event_id=module.tournament.hltv_event_id
-                    )
+                if category.url_template:
+                    # Prefer stage event ID, fallback to tournament event ID
+                    event_id = None
+                    if module.stage and module.stage.hltv_event_id:
+                        event_id = module.stage.hltv_event_id
+                    elif module.tournament.hltv_event_id:
+                        event_id = module.tournament.hltv_event_id
+
+                    if event_id:
+                        initial["source_url"] = category.url_template.format(
+                            event_id=event_id
+                        )
 
                 if category.default_scoring_rule:
-                    initial['scoring_rule'] = category.default_scoring_rule.id
+                    initial["scoring_rule"] = category.default_scoring_rule.id
 
             except Exception:
                 pass  # Ignore errors, field will be blank

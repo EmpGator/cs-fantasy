@@ -20,7 +20,7 @@ class UserAdmin(admin.ModelAdmin):
 class StageInline(nested_admin.NestedTabularInline):
     model = Stage
     extra = 0
-    fields = ("name", "order", "start_date", "end_date", "next_stage", "is_active")
+    fields = ("name", "order", "start_date", "end_date", "hltv_url", "next_stage", "is_active")
     ordering = ["order"]
 
 
@@ -32,7 +32,11 @@ class TournamentAdmin(nested_admin.NestedModelAdmin):
     date_hierarchy = "start_date"
     ordering = ["-start_date"]
     inlines = [StageInline, SwissModuleInline, BracketInline, StatPredictionsModuleInline]
-    actions = ["calculate_scores_for_selected_tournaments"]
+    actions = [
+        "calculate_scores_for_selected_tournaments",
+        "update_tournament_results",
+        "schedule_tournament_updates",
+    ]
     change_list_template = "admin/fantasy/tournament/change_list.html"
 
     @admin.action(description="Calculate scores for selected tournaments")
@@ -42,6 +46,81 @@ class TournamentAdmin(nested_admin.NestedModelAdmin):
             self.message_user(
                 request,
                 f"Scores calculated for {updated_count} modules in tournament '{tournament.name}'.",
+                messages.SUCCESS,
+            )
+
+    @admin.action(description="Update results for ongoing modules")
+    def update_tournament_results(self, request, queryset):
+        from django.core.management import call_command
+        from io import StringIO
+
+        for tournament in queryset:
+            # Capture command output
+            output = StringIO()
+            try:
+                # Run the command with verbosity=0
+                call_command(
+                    'update_tournament_results',
+                    tournament.id,
+                    verbosity=0,  # Suppress output to stdout
+                    stdout=output
+                )
+
+                self.message_user(
+                    request,
+                    f"Successfully updated results for tournament '{tournament.name}'.",
+                    messages.SUCCESS,
+                )
+            except Exception as e:
+                self.message_user(
+                    request,
+                    f"Failed to update tournament '{tournament.name}': {str(e)}",
+                    messages.ERROR,
+                )
+
+    @admin.action(description="Schedule automated result updates (every 30 min)")
+    def schedule_tournament_updates(self, request, queryset):
+        from django_q.models import Schedule
+        from django.utils import timezone
+
+        created_count = 0
+        skipped_count = 0
+
+        for tournament in queryset:
+            schedule_name = f"update_results_tournament_{tournament.id}"
+
+            # Check if schedule already exists
+            if Schedule.objects.filter(name=schedule_name).exists():
+                self.message_user(
+                    request,
+                    f"Schedule already exists for tournament '{tournament.name}'.",
+                    messages.WARNING,
+                )
+                skipped_count += 1
+                continue
+
+            # Create new schedule
+            Schedule.objects.create(
+                func='fantasy.tasks.update_results.update_tournament_results_task',
+                args=str(tournament.id),
+                name=schedule_name,
+                schedule_type=Schedule.MINUTES,
+                minutes=30,
+                repeats=-1,  # Repeat indefinitely
+            )
+
+            self.message_user(
+                request,
+                f"Created schedule for tournament '{tournament.name}' (runs every 30 minutes).",
+                messages.SUCCESS,
+            )
+            created_count += 1
+
+        if created_count > 0:
+            self.message_user(
+                request,
+                f"Successfully created {created_count} schedule(s). "
+                f"View them in Task Management → Scheduled tasks.",
                 messages.SUCCESS,
             )
 

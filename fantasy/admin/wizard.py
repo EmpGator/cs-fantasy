@@ -250,12 +250,14 @@ class TournamentWizardView:
         try:
             html = Fetcher().fetch(url=hltv_url)
             metadata = parse_tournament_metadata(html)
-            segments.append({
-                "url": hltv_url,
-                "metadata": metadata,
-                "start_date": metadata.get("start_date"),
-                "end_date": metadata.get("end_date"),
-            })
+            segments.append(
+                {
+                    "url": hltv_url,
+                    "metadata": metadata,
+                    "start_date": metadata.get("start_date"),
+                    "end_date": metadata.get("end_date"),
+                }
+            )
         except Exception as e:
             logger.error(f"Failed to fetch tournament data: {e}")
             metadata = {
@@ -267,12 +269,14 @@ class TournamentWizardView:
                 "has_swiss": False,
                 "has_bracket": False,
             }
-            segments.append({
-                "url": hltv_url,
-                "metadata": metadata,
-                "start_date": None,
-                "end_date": None,
-            })
+            segments.append(
+                {
+                    "url": hltv_url,
+                    "metadata": metadata,
+                    "start_date": None,
+                    "end_date": None,
+                }
+            )
 
         # Parse additional URLs
         for additional_url in additional_urls.split("\n"):
@@ -282,14 +286,18 @@ class TournamentWizardView:
             try:
                 html = Fetcher().fetch(url=additional_url)
                 add_metadata = parse_tournament_metadata(html)
-                segments.append({
-                    "url": additional_url,
-                    "metadata": add_metadata,
-                    "start_date": add_metadata.get("start_date"),
-                    "end_date": add_metadata.get("end_date"),
-                })
+                segments.append(
+                    {
+                        "url": additional_url,
+                        "metadata": add_metadata,
+                        "start_date": add_metadata.get("start_date"),
+                        "end_date": add_metadata.get("end_date"),
+                    }
+                )
             except Exception as e:
-                logger.error(f"Failed to fetch additional tournament data from {additional_url}: {e}")
+                logger.error(
+                    f"Failed to fetch additional tournament data from {additional_url}: {e}"
+                )
 
         # Sort segments by start_date
         segments.sort(key=lambda s: s["start_date"] or timezone.now())
@@ -315,13 +323,18 @@ class TournamentWizardView:
                     if request.POST.get(checkbox_name):
                         # Get custom module name and dates
                         custom_name = request.POST.get(
-                            f"module_name_{stage_idx}_{mod_idx}",
-                            module["name"]
+                            f"module_name_{stage_idx}_{mod_idx}", module["name"]
                         )
-                        module_start = request.POST.get(f"module_start_{stage_idx}_{mod_idx}", "")
-                        module_end = request.POST.get(f"module_end_{stage_idx}_{mod_idx}", "")
+                        module_start = request.POST.get(
+                            f"module_start_{stage_idx}_{mod_idx}", ""
+                        )
+                        module_end = request.POST.get(
+                            f"module_end_{stage_idx}_{mod_idx}", ""
+                        )
                         module_copy = module.copy()
-                        module_copy["original_name"] = module["name"]  # Preserve for bracket lookup
+                        module_copy["original_name"] = module[
+                            "name"
+                        ]  # Preserve for bracket lookup
                         module_copy["name"] = custom_name
                         module_copy["custom_start"] = module_start
                         module_copy["custom_end"] = module_end
@@ -330,31 +343,32 @@ class TournamentWizardView:
                 if stage_modules:
                     # Get custom stage name and dates
                     custom_stage_name = request.POST.get(
-                        f"stage_name_{stage_idx}",
-                        stage_data["stage_name"]
+                        f"stage_name_{stage_idx}", stage_data["stage_name"]
                     )
                     custom_start = request.POST.get(f"stage_start_{stage_idx}", "")
                     custom_end = request.POST.get(f"stage_end_{stage_idx}", "")
-                    stage_order = int(request.POST.get(f"stage_order_{stage_idx}", stage_idx))
+                    stage_order = int(
+                        request.POST.get(f"stage_order_{stage_idx}", stage_idx)
+                    )
 
-                    stage_configs.append({
-                        "stage_name": custom_stage_name,
-                        "best_of": stage_data.get("best_of", 3),
-                        "segment_idx": stage_data.get("segment_idx", 0),
-                        "modules": stage_modules,
-                        "custom_start": custom_start,
-                        "custom_end": custom_end,
-                        "order": stage_order,
-                        "original_idx": stage_idx,
-                    })
+                    stage_configs.append(
+                        {
+                            "stage_name": custom_stage_name,
+                            "best_of": stage_data.get("best_of", 3),
+                            "segment_idx": stage_data.get("segment_idx", 0),
+                            "modules": stage_modules,
+                            "custom_start": custom_start,
+                            "custom_end": custom_end,
+                            "order": stage_order,
+                            "original_idx": stage_idx,
+                        }
+                    )
 
             # Sort by custom order
             stage_configs.sort(key=lambda x: x["order"])
             selected_modules = stage_configs
 
-            request.session["wizard_name"] = request.POST.get(
-                "name", tournament_name
-            )
+            request.session["wizard_name"] = request.POST.get("name", tournament_name)
             request.session["wizard_selected_modules"] = selected_modules
 
             request.session["wizard_start_date"] = (
@@ -384,14 +398,20 @@ class TournamentWizardView:
                     }
                     for b in seg_meta.get("brackets", [])
                 ]
-                serialized_segments.append({
-                    "url": segment["url"],
-                    "start_date": segment["start_date"].isoformat() if segment["start_date"] else None,
-                    "end_date": segment["end_date"].isoformat() if segment["end_date"] else None,
-                    "teams": seg_meta.get("teams", []),
-                    "players": seg_meta.get("players", []),
-                    "brackets": serialized_brackets,
-                })
+                serialized_segments.append(
+                    {
+                        "url": segment["url"],
+                        "start_date": segment["start_date"].isoformat()
+                        if segment["start_date"]
+                        else None,
+                        "end_date": segment["end_date"].isoformat()
+                        if segment["end_date"]
+                        else None,
+                        "teams": seg_meta.get("teams", []),
+                        "players": seg_meta.get("players", []),
+                        "brackets": serialized_brackets,
+                    }
+                )
             request.session["wizard_segments"] = serialized_segments
 
             return redirect("admin:fantasy_tournament_wizard_create")
@@ -422,8 +442,12 @@ class TournamentWizardView:
                 # Format dates for datetime-local input (YYYY-MM-DDTHH:MM)
                 start_date = segment.get("start_date")
                 end_date = segment.get("end_date")
-                stage_data["start_date"] = start_date.strftime("%Y-%m-%dT%H:%M") if start_date else ""
-                stage_data["end_date"] = end_date.strftime("%Y-%m-%dT%H:%M") if end_date else ""
+                stage_data["start_date"] = (
+                    start_date.strftime("%Y-%m-%dT%H:%M") if start_date else ""
+                )
+                stage_data["end_date"] = (
+                    end_date.strftime("%Y-%m-%dT%H:%M") if end_date else ""
+                )
                 all_suggested.append(stage_data)
 
         return all_suggested
@@ -615,7 +639,8 @@ class TournamentWizardView:
                     team_map[team_hltv_id] = team
 
                 player, _ = Player.objects.get_or_create(
-                    hltv_id=player_data["hltv_id"], defaults={"name": player_data["name"]}
+                    hltv_id=player_data["hltv_id"],
+                    defaults={"name": player_data["name"]},
                 )
                 if team and player.active_team != team:
                     player.active_team = team
@@ -639,13 +664,21 @@ class TournamentWizardView:
                 stage_start = datetime.fromisoformat(custom_start)
             else:
                 seg_start_str = segment.get("start_date")
-                stage_start = datetime.fromisoformat(seg_start_str) if seg_start_str else start_date
+                stage_start = (
+                    datetime.fromisoformat(seg_start_str)
+                    if seg_start_str
+                    else start_date
+                )
 
             if custom_end:
                 stage_end = datetime.fromisoformat(custom_end)
             else:
                 seg_end_str = segment.get("end_date")
-                stage_end = datetime.fromisoformat(seg_end_str) if seg_end_str else end_date
+                stage_end = (
+                    datetime.fromisoformat(seg_end_str) if seg_end_str else end_date
+                )
+
+            segment_url = segment.get("url", "")
 
             stage = Stage.objects.create(
                 tournament=tournament,
@@ -653,6 +686,7 @@ class TournamentWizardView:
                 order=stage_idx + 1,
                 start_date=stage_start,
                 end_date=stage_end,
+                hltv_url=segment_url,  # Populate stage URL from segment
                 is_active=(stage_idx == 0),  # Only first stage is active
             )
 
@@ -671,8 +705,16 @@ class TournamentWizardView:
                 # Use custom module dates if provided, otherwise use stage dates
                 mod_custom_start = module_config.get("custom_start", "")
                 mod_custom_end = module_config.get("custom_end", "")
-                module_start = datetime.fromisoformat(mod_custom_start) if mod_custom_start else stage_start
-                module_end = datetime.fromisoformat(mod_custom_end) if mod_custom_end else stage_end
+                module_start = (
+                    datetime.fromisoformat(mod_custom_start)
+                    if mod_custom_start
+                    else stage_start
+                )
+                module_end = (
+                    datetime.fromisoformat(mod_custom_end)
+                    if mod_custom_end
+                    else stage_end
+                )
 
                 if module_type == "swiss":
                     self._create_swiss_module(
@@ -686,7 +728,9 @@ class TournamentWizardView:
                 elif module_type == "bracket":
                     bracket_info = None
                     # Use original_name for lookup (before user customization)
-                    lookup_name = module_config.get("original_name", module_config["name"])
+                    lookup_name = module_config.get(
+                        "original_name", module_config["name"]
+                    )
                     for bd in segment_brackets:
                         if bd["name"] == lookup_name:
                             bracket_info = bd
