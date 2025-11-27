@@ -167,16 +167,16 @@ def parse_leaderboard(html_content: str) -> list[LeaderboardEntry]:
             continue
 
         try:
-            value = float(rating_span.text.strip())
+            text = rating_span.text.strip().replace("%", "")
+            value = float(text)
         except ValueError:
             value = rating_span.text.strip()
-            continue
 
         entries.append({"hltv_id": hltv_id, "name": name, "value": value})
 
     # Can't soret by value as it's not known if bigger is better
     # They should be sorted by default anyways
-    # entries.sort(key=lambda x: x["value"], reverse=True)
+    entries.sort(key=lambda x: x["value"], reverse=True)
 
     result = []
     current_rank = 1
