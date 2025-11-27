@@ -36,10 +36,11 @@ class LeaderboardEntry:
 @dataclass
 class TournamentStage:
     """Represents a stage parsed from HLTV formats table."""
-    name: str           # "Group stage", "Playoffs"
-    format_type: str    # "swiss", "bracket"
-    best_of: int        # 1, 3, 5
-    details: str        # Raw format text
+
+    name: str  # "Group stage", "Playoffs"
+    format_type: str  # "swiss", "bracket"
+    best_of: int  # 1, 3, 5
+    details: str  # Raw format text
 
 
 def parse_teams_attending(html_content: str) -> dict:
@@ -83,17 +84,21 @@ def parse_teams_attending(html_content: str) -> dict:
 
         lineup_box = team_box.select_one(".lineup-box")
         if lineup_box:
-            for player_el in lineup_box.select(".flag-align.player a[href*='/player/']"):
+            for player_el in lineup_box.select(
+                ".flag-align.player a[href*='/player/']"
+            ):
                 player_name = player_el.text.strip()
                 player_href = player_el.get("href", "")
                 player_match = re.search(r"/player/(\d+)/", player_href)
                 if player_match:
                     player_hltv_id = int(player_match.group(1))
-                    players.append(Player(
-                        name=player_name,
-                        hltv_id=player_hltv_id,
-                        team_hltv_id=team_hltv_id
-                    ))
+                    players.append(
+                        Player(
+                            name=player_name,
+                            hltv_id=player_hltv_id,
+                            team_hltv_id=team_hltv_id,
+                        )
+                    )
 
     return {
         "teams": teams,
@@ -124,9 +129,7 @@ def parse_swiss(html_content: str) -> list[ResultRow]:
                 record_element = row.select_one(".points.cell-width-record")
                 if record_element:
                     record = record_element.text.strip()
-                    results.append(
-                        ResultRow(team_hltv_id=team_hltv_id, record=record)
-                    )
+                    results.append(ResultRow(team_hltv_id=team_hltv_id, record=record))
 
     return results
 
@@ -166,11 +169,14 @@ def parse_leaderboard(html_content: str) -> list[LeaderboardEntry]:
         try:
             value = float(rating_span.text.strip())
         except ValueError:
+            value = rating_span.text.strip()
             continue
 
         entries.append({"hltv_id": hltv_id, "name": name, "value": value})
 
-    entries.sort(key=lambda x: x["value"], reverse=True)
+    # Can't soret by value as it's not known if bigger is better
+    # They should be sorted by default anyways
+    # entries.sort(key=lambda x: x["value"], reverse=True)
 
     result = []
     current_rank = 1
@@ -180,12 +186,14 @@ def parse_leaderboard(html_content: str) -> list[LeaderboardEntry]:
         if previous_value is not None and entry["value"] < previous_value:
             current_rank += 1
 
-        result.append(LeaderboardEntry(
-            hltv_id=entry["hltv_id"],
-            name=entry["name"],
-            value=entry["value"],
-            position=current_rank
-        ))
+        result.append(
+            LeaderboardEntry(
+                hltv_id=entry["hltv_id"],
+                name=entry["name"],
+                value=entry["value"],
+                position=current_rank,
+            )
+        )
         previous_value = entry["value"]
 
     return result
@@ -286,22 +294,26 @@ def parse_brackets(html_content: str) -> list[ParsedBracket]:
                     winner_hltv_id = team_b_hltv_id
 
                 if team_a_hltv_id and team_b_hltv_id and winner_hltv_id:
-                    matches.append(BracketMatchResult(
-                        hltv_match_id=hltv_match_id,
-                        slot_id=slot_id,
-                        team_a_hltv_id=team_a_hltv_id,
-                        team_b_hltv_id=team_b_hltv_id,
-                        team_a_score=team_a_score,
-                        team_b_score=team_b_score,
-                        winner_hltv_id=winner_hltv_id,
-                    ))
+                    matches.append(
+                        BracketMatchResult(
+                            hltv_match_id=hltv_match_id,
+                            slot_id=slot_id,
+                            team_a_hltv_id=team_a_hltv_id,
+                            team_b_hltv_id=team_b_hltv_id,
+                            team_a_score=team_a_score,
+                            team_b_score=team_b_score,
+                            winner_hltv_id=winner_hltv_id,
+                        )
+                    )
 
         if matches:
-            brackets.append(ParsedBracket(
-                name=bracket_name,
-                bracket_type=bracket_type,
-                matches=matches,
-            ))
+            brackets.append(
+                ParsedBracket(
+                    name=bracket_name,
+                    bracket_type=bracket_type,
+                    matches=matches,
+                )
+            )
 
     return brackets
 
@@ -346,12 +358,14 @@ def parse_tournament_formats(html_content: str) -> list[TournamentStage]:
         if bo_match:
             best_of = int(bo_match.group(1))
 
-        stages.append(TournamentStage(
-            name=stage_name,
-            format_type=format_type,
-            best_of=best_of,
-            details=format_text,
-        ))
+        stages.append(
+            TournamentStage(
+                name=stage_name,
+                format_type=format_type,
+                best_of=best_of,
+                details=format_text,
+            )
+        )
 
     return stages
 
@@ -382,7 +396,9 @@ def parse_tournament_metadata(html_content: str) -> dict:
     players = []
     parsed_attending = parse_teams_attending(html_content)
     if parsed_attending.get("teams"):
-        teams = [{"hltv_id": t.hltv_id, "name": t.name} for t in parsed_attending["teams"]]
+        teams = [
+            {"hltv_id": t.hltv_id, "name": t.name} for t in parsed_attending["teams"]
+        ]
     if parsed_attending.get("players"):
         players = [
             {"hltv_id": p.hltv_id, "name": p.name, "team_hltv_id": p.team_hltv_id}
@@ -414,11 +430,15 @@ def parse_tournament_metadata(html_content: str) -> dict:
         rel_name = rel.text.strip()
         match = re.search(r"/events/(\d+)/", href)
         if match:
-            related_events.append({
-                "hltv_id": int(match.group(1)),
-                "name": rel_name,
-                "url": f"https://www.hltv.org{href}" if href.startswith("/") else href
-            })
+            related_events.append(
+                {
+                    "hltv_id": int(match.group(1)),
+                    "name": rel_name,
+                    "url": f"https://www.hltv.org{href}"
+                    if href.startswith("/")
+                    else href,
+                }
+            )
 
     start_date = None
     end_date = None
