@@ -17,6 +17,8 @@ from fantasy.models.swiss import (
     SwissScoreGroup,
 )
 
+from fantasy.services.fetcher import fetcher
+
 logger = logging.getLogger(__name__)
 
 # Retry delays in minutes: 1h, 2h, 4h, 6h, 12h, 24h
@@ -52,9 +54,7 @@ def populate_stage_modules(stage_id, attempt=0):
             logger.error(f"No HLTV URL found for stage {stage_id} or its tournament")
             return {"status": "error", "reason": "missing_url"}
 
-        from fantasy.services.fetcher import Fetcher
-
-        html = Fetcher.fetch(url=source_url, force_refresh=True)
+        html = fetcher.fetch(url=source_url, force_refresh=True)
         logger.debug(f"Fetched {len(html)} chars from {source_url}")
 
         modules = list(BaseModule.objects.filter(stage=stage))
@@ -494,14 +494,13 @@ def finalize_swiss_module_internal(module):
     """
     logger.info(f"Finalizing Swiss module: {module.name}")
 
-    from fantasy.services.fetcher import Fetcher
     from fantasy.services.hltv_parser import parse_swiss
 
     if not module.tournament.hltv_url:
         logger.error(f"Tournament {module.tournament} has no HLTV URL")
         return {"status": "error", "reason": "missing_url"}
 
-    html = Fetcher.fetch(
+    html = fetcher.fetch(
         url=module.tournament.hltv_url,
         module=module,
     )
@@ -592,14 +591,13 @@ def finalize_bracket_module_internal(module):
     """
     logger.info(f"Finalizing Bracket module: {module.name}")
 
-    from fantasy.services.fetcher import Fetcher
     from fantasy.services.hltv_parser import parse_brackets
 
     if not module.tournament.hltv_url:
         logger.error(f"Tournament {module.tournament} has no HLTV URL")
         return {"status": "error", "reason": "missing_url"}
 
-    html = Fetcher.fetch(
+    html = fetcher.fetch(
         url=module.tournament.hltv_url,
         module=module,
     )
@@ -673,7 +671,6 @@ def finalize_stats_module_internal(module):
     Returns:
         dict: Result information
     """
-    from fantasy.services.fetcher import Fetcher
     from fantasy.services.hltv_parser import parse_leaderboard
     from fantasy.models.stat_predictions import StatPredictionResult
 
@@ -690,7 +687,7 @@ def finalize_stats_module_internal(module):
             definitions_skipped += 1
             continue
 
-        html = Fetcher.fetch(
+        html = fetcher.fetch(
             url=definition.source_url,
             module=module,
         )

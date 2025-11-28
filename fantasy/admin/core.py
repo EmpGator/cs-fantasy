@@ -1,6 +1,8 @@
 from django.contrib import admin, messages
 import nested_admin
-from ..models.core import User, Tournament, Team, Player, Stage
+from django.utils import timezone
+from django.contrib.contenttypes.models import ContentType
+from ..models.core import User, Tournament, Team, Player, Stage, BaseModule
 from .swiss import SwissModuleInline
 from .bracket import BracketInline
 from .stat_predictions import StatPredictionsModuleInline
@@ -49,6 +51,7 @@ class TournamentAdmin(nested_admin.NestedModelAdmin):
         "calculate_scores_for_selected_tournaments",
         "update_tournament_results",
         "schedule_tournament_updates",
+        "finalize_ready_modules",
     ]
     change_list_template = "admin/fantasy/tournament/change_list.html"
 
@@ -88,6 +91,71 @@ class TournamentAdmin(nested_admin.NestedModelAdmin):
                     f"Failed to update tournament '{tournament.name}': {str(e)}",
                     messages.ERROR,
                 )
+
+    @admin.action(description="Finalize modules ready for completion")
+    def finalize_ready_modules(self, request, queryset):
+        from fantasy.tasks.module_finalization import finalize_module
+
+        now = timezone.now()
+        total_finalized = 0
+        total_errors = 0
+
+        for tournament in queryset:
+            modules = BaseModule.objects.filter(
+                tournament=tournament,
+                is_completed=False,
+                end_date__lte=now
+            )
+
+            if not modules.exists():
+                self.message_user(
+                    request,
+                    f"No modules ready for finalization in tournament '{tournament.name}'.",
+                    messages.INFO,
+                )
+                continue
+
+            finalized_count = 0
+            error_count = 0
+
+            for module in modules:
+                try:
+                    ct = ContentType.objects.get_for_model(type(module))
+                    result = finalize_module(ct.id, module.id)
+
+                    if result.get("status") == "success":
+                        finalized_count += 1
+                    elif result.get("status") == "error":
+                        error_count += 1
+                        self.message_user(
+                            request,
+                            f"Error finalizing {module.name}: {result.get('reason', 'unknown error')}",
+                            messages.WARNING,
+                        )
+                except Exception as e:
+                    error_count += 1
+                    self.message_user(
+                        request,
+                        f"Failed to finalize module '{module.name}': {str(e)}",
+                        messages.ERROR,
+                    )
+
+            total_finalized += finalized_count
+            total_errors += error_count
+
+            if finalized_count > 0:
+                self.message_user(
+                    request,
+                    f"Successfully finalized {finalized_count} module(s) in tournament '{tournament.name}'.",
+                    messages.SUCCESS,
+                )
+
+        if total_finalized == 0 and total_errors == 0:
+            self.message_user(
+                request,
+                "No modules ready for finalization across selected tournaments.",
+                messages.INFO,
+            )
 
 
 @admin.register(Stage)
