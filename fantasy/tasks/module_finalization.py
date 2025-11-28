@@ -349,11 +349,11 @@ def populate_bracket_module(module, parsed_data):
 
 def populate_stat_predictions_module(module, parsed_data):
     """
-    Populate stat predictions module by ensuring players exist.
+    Populate stat predictions module by adding players from stage/tournament to all definitions.
 
     Args:
         module: StatPredictionsModule instance
-        parsed_data: Dict with parsed HLTV data
+        parsed_data: Dict with parsed HLTV data containing players and teams
 
     Returns:
         dict: Result information with status
@@ -363,12 +363,16 @@ def populate_stat_predictions_module(module, parsed_data):
     players_data = parsed_data.get("players", [])
     teams_data = parsed_data.get("teams", [])
 
+    logger.info(
+        f"Parsed data contains {len(players_data)} players and {len(teams_data)} teams"
+    )
+
     if not players_data:
         logger.warning(f"No players found for StatPredictions module {module.name}")
         return {"status": "incomplete", "reason": "no_players"}
 
-    created_count = 0
-    updated_count = 0
+    players_created_count = 0
+    players_updated_count = 0
     teams_created_count = 0
     teams_updated_count = 0
 
@@ -380,38 +384,70 @@ def populate_stat_predictions_module(module, parsed_data):
         if created:
             teams_created_count += 1
         elif team.name != team_data.name:
+            team.name = team_data.name
             team.save(update_fields=["name"])
-            updated_count += 1
+            teams_updated_count += 1
 
     team_by_hltv_id = {t.hltv_id: t for t in Team.objects.filter(hltv_id__isnull=False)}
 
+    player_ids = []
     for player_data in players_data:
         team = team_by_hltv_id.get(player_data.team_hltv_id)
         player, created = Player.objects.get_or_create(
             hltv_id=player_data.hltv_id,
-            defaults={"name": player_data.name, "team": team.id},
+            defaults={"name": player_data.name, "active_team": team},
         )
 
         if created:
-            created_count += 1
+            players_created_count += 1
         elif player.name != player_data.name:
             player.name = player_data.name
             player.save(update_fields=["name"])
-            updated_count += 1
+            players_updated_count += 1
+
+        player_ids.append(player.id)
 
     logger.info(
         f"StatPredictions module {module.name}: "
-        f"{created_count} players created, {updated_count} updated"
+        f"{players_created_count} players created, {players_updated_count} updated, "
+        f"{teams_created_count} teams created, {teams_updated_count} teams updated"
+    )
+
+    options_added_count = 0
+    definitions_count = module.definitions.count()
+
+    for definition in module.definitions.all():
+        existing_option_ids = set(definition.options.values_list("id", flat=True))
+        new_player_ids = set(player_ids) - existing_option_ids
+
+        if new_player_ids:
+            definition.options.add(*new_player_ids)
+            options_added_count += len(new_player_ids)
+            logger.info(
+                f"Added {len(new_player_ids)} new players to definition '{definition.title}' "
+                f"(now has {len(existing_option_ids) + len(new_player_ids)} total options)"
+            )
+        else:
+            logger.debug(
+                f"No new players to add for definition '{definition.title}' "
+                f"({len(existing_option_ids)} existing options)"
+            )
+
+    logger.info(
+        f"Updated {definitions_count} definitions with players from stage/tournament. "
+        f"Total new options added: {options_added_count}"
     )
 
     return {
         "status": "success",
         "module_type": "stat_predictions",
         "module_id": module.id,
-        "players_created": created_count,
-        "players_updated": updated_count,
+        "players_created": players_created_count,
+        "players_updated": players_updated_count,
         "teams_created": teams_created_count,
         "teams_updated": teams_updated_count,
+        "options_added": options_added_count,
+        "definitions_updated": definitions_count,
     }
 
 

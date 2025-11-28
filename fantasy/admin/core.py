@@ -165,12 +165,46 @@ class StageAdmin(admin.ModelAdmin):
     search_fields = ["name"]
     list_editable = ["order"]
     ordering = ["tournament", "order"]
+    actions = ["repopulate_stage_modules"]
 
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)
         if "tournament" in request.GET:
             initial["tournament"] = request.GET["tournament"]
         return initial
+
+    @admin.action(description="Re-populate modules for selected stages")
+    def repopulate_stage_modules(self, request, queryset):
+        from fantasy.tasks.module_finalization import populate_stage_modules
+
+        for stage in queryset:
+            try:
+                result = populate_stage_modules(stage.id)
+
+                if result.get("status") == "success":
+                    self.message_user(
+                        request,
+                        f"Successfully populated modules for stage '{stage.name}'.",
+                        messages.SUCCESS,
+                    )
+                elif result.get("status") == "incomplete":
+                    self.message_user(
+                        request,
+                        f"Stage '{stage.name}' populated with warnings: {result.get('reason', 'unknown')}",
+                        messages.WARNING,
+                    )
+                else:
+                    self.message_user(
+                        request,
+                        f"Error populating stage '{stage.name}': {result.get('reason', 'unknown error')}",
+                        messages.ERROR,
+                    )
+            except Exception as e:
+                self.message_user(
+                    request,
+                    f"Failed to populate stage '{stage.name}': {str(e)}",
+                    messages.ERROR,
+                )
 
 
 class PlayerInline(admin.TabularInline):
