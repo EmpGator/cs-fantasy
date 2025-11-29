@@ -77,6 +77,9 @@ class SwissModuleData:
     name: str
     table_data: list[SwissTableRow]
     module_total_scores: list[UserScore]
+    users_data_id: str
+    rows_data_id: str
+    totals_data_id: str
 
 
 @dataclass
@@ -372,6 +375,9 @@ def _process_swiss_module(module, users):
         name=module.name,
         table_data=table_data,
         module_total_scores=module_total_scores,
+        users_data_id=f"swiss-users-data-{module.id}",
+        rows_data_id=f"swiss-rows-data-{module.id}",
+        totals_data_id=f"swiss-totals-data-{module.id}",
     )
 
     users_data = [

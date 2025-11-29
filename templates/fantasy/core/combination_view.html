@@ -156,9 +156,9 @@
 
         function swissTable(moduleId) {
             return {
-                users: JSON.parse(document.getElementById('swiss-users-data').textContent),
-                initialRows: JSON.parse(document.getElementById('swiss-rows-data').textContent),
-                initialTotals: JSON.parse(document.getElementById('swiss-totals-data').textContent),
+                users: JSON.parse(document.getElementById(`swiss-users-data-${moduleId}`).textContent),
+                initialRows: JSON.parse(document.getElementById(`swiss-rows-data-${moduleId}`).textContent),
+                initialTotals: JSON.parse(document.getElementById(`swiss-totals-data-${moduleId}`).textContent),
                 userColumns: [],
                 userMap: {},
                 rows: [],

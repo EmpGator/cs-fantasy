@@ -2,9 +2,9 @@
 
 <h2>{{ module.name }}</h2>
 
-{{ users|dataclass_asdict|json_script:"swiss-users-data" }}
-{{ module.table_data|dataclass_asdict|json_script:"swiss-rows-data" }}
-{{ module.module_total_scores|dataclass_asdict|json_script:"swiss-totals-data" }}
+{{ users|dataclass_asdict|json_script:module.users_data_id }}
+{{ module.table_data|dataclass_asdict|json_script:module.rows_data_id }}
+{{ module.module_total_scores|dataclass_asdict|json_script:module.totals_data_id }}
 
 <div x-data="swissTable('{{ module.id }}')" x-init="init()">
     <div class="my-3 sort-key-selector" x-show="sortCol >= 2">
