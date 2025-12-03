@@ -144,7 +144,7 @@ class StatPredictionScoringRuleAdmin(admin.ModelAdmin):
         (
             "Scoring Configuration",
             {
-                "fields": ("rules", "validation_status"),
+                "fields": ("scoring_config", "validation_status"),
                 "description": (
                     "Define scoring rules using the scoring engine format. "
                     "The configuration is automatically validated on save."

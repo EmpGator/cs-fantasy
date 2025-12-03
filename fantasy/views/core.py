@@ -1,12 +1,13 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme as is_safe_url
 
 from ..forms.registry import create_module_form
 from ..models import (
@@ -49,6 +50,7 @@ class UserScore:
     user_id: str
     username: str
     score: float
+    color: str = ""
 
 
 @dataclass
@@ -93,7 +95,8 @@ class Category:
 class StatPredictionCell:
     """Individual prediction cell in stat prediction table."""
 
-    display: str  # player name
+    display: str  # player name (or comma-separated names for ties)
+    display_list: list[str] | None  # list of tied player names (for tooltips)
     points: float
     color: str
 
@@ -171,15 +174,76 @@ class TournamentData:
     can_make_predictions: bool = False
 
 
+def _authenticate_user_by_slug(
+    request: HttpRequest, user: User, redirect_url: str
+) -> HttpResponse | None:
+    """
+    Authenticate user by slug if not already logged in.
+    Returns redirect response if authentication required, None if authentication successful.
+    """
+    correct_user = request.user == user
+    if request.user.is_authenticated and not correct_user:
+        logout(request)
+
+    if not correct_user:
+        if user.uses_password or user.is_superuser:
+            return redirect(reverse("login") + f"?next={redirect_url}")
+        user.backend = "fantasy.backends.SlugOrEmailBackend"
+        login(request, user)
+
+    return None
+
+
 def login_view(request: HttpRequest) -> HttpResponse:
-    """Login page for users to enter their slug."""
+    """Login page supporting both slug-only and password authentication."""
     if request.method == "POST":
-        slug = request.POST.get("user_slug")
-        if User.objects.filter(slug=slug).exists():
-            return redirect(reverse("user_landing_page_by_slug", args=[slug]))
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "").strip()
+        next_url = request.POST.get("next", "")
+
+        if not username:
+            messages.error(request, "Username/email/slug is required.")
+            return render(request, "fantasy/core/login.html", {"next": next_url})
+
+        if password:
+            user = authenticate(request, username=username, password=password)
+            if user is not None:
+                login(request, user)
+                messages.success(request, f"Welcome back, {user.username}!")
+
+                if next_url and is_safe_url(
+                    next_url, allowed_hosts={request.get_host()}
+                ):
+                    return redirect(next_url)
+                return redirect(reverse("user_landing_page_by_slug", args=[user.slug]))
+            else:
+                messages.error(request, "Invalid credentials. Please try again.")
+                return render(request, "fantasy/core/login.html", {"next": next_url})
+
         else:
-            messages.error(request, "Invalid user slug. Please try again.")
-    return render(request, "fantasy/core/login.html")
+            try:
+                user = User.objects.get(slug=username)
+                if not user.uses_password and not user.is_superuser:
+                    if next_url and is_safe_url(
+                        next_url, allowed_hosts={request.get_host()}
+                    ):
+                        return redirect(next_url)
+                    return redirect(
+                        reverse("user_landing_page_by_slug", args=[user.slug])
+                    )
+                else:
+                    messages.error(request, "This account requires a password.")
+                    return render(
+                        request, "fantasy/core/login.html", {"next": next_url}
+                    )
+            except User.DoesNotExist:
+                messages.error(
+                    request, "User not found. Please check your credentials."
+                )
+                return render(request, "fantasy/core/login.html", {"next": next_url})
+
+    next_url = request.GET.get("next", "")
+    return render(request, "fantasy/core/login.html", {"next": next_url})
 
 
 def register_view(request: HttpRequest) -> HttpResponse:
@@ -220,10 +284,9 @@ def user_landingpage(
     if user_slug:
         user = get_object_or_404(User, slug=user_slug)
 
-    if request.user.is_authenticated:
-        if request.user != user:
-            logout(request)
-    login(request, user)
+        auth_response = _authenticate_user_by_slug(request, user, f"/user/{user.slug}/")
+        if auth_response:
+            return auth_response
     tournaments = Tournament.objects.filter(is_active=True)
     context = {
         "user": user,
@@ -243,6 +306,12 @@ def tournament_user_submissions(
 
     if user_slug:
         user = get_object_or_404(User, slug=user_slug)
+
+        auth_response = _authenticate_user_by_slug(
+            request, user, f"/{user.slug}/{tournament_slug}/"
+        )
+        if auth_response:
+            return auth_response
 
     modules = (
         tournament.modules.filter(
@@ -420,8 +489,11 @@ def _process_stat_prediction_module(module, users):
         if definition.scoring_rule:
             max_points = max(max_points, definition.scoring_rule.max_score)
             min_points = min(min_points, definition.scoring_rule.min_score)
+        else:
+            max_points = max(max_points, module.max_score)
+            min_points = min(min_points, module.min_score)
     if max_points == 0:
-        max_points = 1  # Avoid division by zero
+        max_points = 1
 
     start_color = "#FFC107"  # Amber
     end_color = "#198754"  # Green
@@ -451,7 +523,9 @@ def _process_stat_prediction_module(module, users):
                 color = interpolate_color(start_color, end_color, factor)
 
             predictions.append(
-                StatPredictionCell(display=display, points=points, color=color)
+                StatPredictionCell(
+                    display=display, display_list=None, points=points, color=color
+                )
             )
 
         table_data.append(
@@ -470,26 +544,48 @@ def _process_stat_prediction_module(module, users):
     )
 
     if has_any_results:
-        max_results_to_show = 3
-        for i in range(max_results_to_show):
+        max_positions_to_show = 3
+
+        for position_idx in range(max_positions_to_show):
             predictions = []
             for category in categories_queryset:
                 results = []
                 if hasattr(category, "result"):
                     results = category.result.results
 
-                if i < len(results):
-                    display = results[i].get("name", "-")
+                unique_positions = sorted(
+                    set(r.get("position", i + 1) for i, r in enumerate(results))
+                )
+
+                if position_idx < len(unique_positions):
+                    target_position = unique_positions[position_idx]
+
+                    tied_names = [
+                        r.get("name", "-")
+                        for r in results
+                        if r.get("position") == target_position
+                    ]
+
+                    if len(tied_names) > 1:
+                        display = ", ".join(tied_names)
+                        display_list = tied_names
+                    else:
+                        display = tied_names[0] if tied_names else "-"
+                        display_list = None
                 else:
                     display = "-"
+                    display_list = None
 
-                # Result rows don't have points
-                predictions.append(StatPredictionCell(display=display, points=0, color=""))
+                predictions.append(
+                    StatPredictionCell(
+                        display=display, display_list=display_list, points=0, color=""
+                    )
+                )
 
             table_data.append(
                 StatPredictionTableRow(
-                    user=f"Top {i + 1}",
-                    user_uuid=None,  # Result rows don't have user UUIDs
+                    user=f"Top {position_idx + 1}",
+                    user_uuid=None,
                     predictions=predictions,
                     score=None,
                 )
@@ -782,8 +878,25 @@ def tournament_combination_view(request, tournament_slug):
                 score=user_tournament_score.total_points
                 if user_tournament_score
                 else 0,
+                color="",  # Will be calculated below
             )
         )
+
+    # Calculate colors for tournament scores
+    if tournament_total_scores:
+        scores = [us.score for us in tournament_total_scores]
+        max_score = max(scores)
+        min_score = min(scores)
+
+        start_color = "#5b6836"  # muted green
+        end_color = "#198754"  # Green
+
+        for user_score in tournament_total_scores:
+            if max_score == min_score:
+                factor = 1.0
+            else:
+                factor = (user_score.score - min_score) / (max_score - min_score)
+            user_score.color = interpolate_color(start_color, end_color, factor)
 
     users = [
         UserData(uuid=str(user.uuid), username=user.username) for user in users_queryset

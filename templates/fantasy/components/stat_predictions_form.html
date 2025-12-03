@@ -74,6 +74,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const maxPlayersPerTeam = wrapper.dataset.maxPlayersPerTeam
         ? parseInt(wrapper.dataset.maxPlayersPerTeam, 10)
         : null;
+    const playerToTeamMap = new Map();
 
     const selects = Array.from(
         document.querySelectorAll(".stat-prediction-select"),
@@ -93,81 +94,67 @@ document.addEventListener("DOMContentLoaded", function () {
                 ],
             }),
     );
-    console.log("tomSelects:", tomSelects);
+    
+    tomSelects.forEach(select => {
+        Object.keys(select.options).forEach(optionId => {
+            let option = select.options[optionId];
+            if (option.value && option.teamName) {
+                playerToTeamMap.set(option.value, option.teamName);
+            }
+        });
+    });
 
     function updateDisabledOptions() {
         const selectedPlayerIds = new Map();
-        const playerTeamMap = new Map();
-        const teamPlayerCounts = new Map();
-        const teamPlayerMap = new Map();
+        const selectedTeamCounts = new Map();
 
+        // 1. Calculate counts of selected players and teams.
         tomSelects.forEach((ts) => {
             const selectedPlayerId = ts.getValue();
             if (selectedPlayerId) {
+                let currentPlayerCount = selectedPlayerIds.get(selectedPlayerId) || 0;
                 selectedPlayerIds.set(
                     selectedPlayerId,
-                    (selectedPlayerIds.get(selectedPlayerId) || 0) + 1,
+                    currentPlayerCount + 1,
                 );
-
-                if (maxPlayersPerTeam !== null) {
-                    Object.values(ts.options).forEach((option) => {
-                      if (option.value != selectedPlayerId) {
-                        if (!playerTeamMap.has(option.teamName)) {
-                          playerTeamMap.set(option.teamName, []);
-                        }
-                        playerTeamMap.get(option.teamName).push(option.value);
-                        return;
-                      }
-                      const teamName = option?.teamName;
-                      if (teamName) {
-                        teamPlayerCounts.set(
-                          teamName,
-                          (teamPlayerCounts.get(teamName) || 0) + 1
-                        )
-                      }
-                    });
+                const teamName = playerToTeamMap.get(selectedPlayerId);
+                if (teamName) {
+                    const currentTeamCount = selectedTeamCounts.get(teamName) || 0;
+                    selectedTeamCounts.set(teamName, currentTeamCount + 1);
                 }
             }
         });
 
-        for (const [teamName, playerIds] of playerTeamMap.entries()) {
-            for (const playerId of playerIds) {
-                teamPlayerMap.set(playerId, teamName);
-            }
-        }
-
-        tomSelects.forEach((ts, index) => {
+        // 2. Apply disabling rules by calling the `updateOption` API.
+        tomSelects.forEach((ts) => {
             const currentSelection = ts.getValue();
-            const originalSelect = selects[index];
+            const teamOfCurrentSelection = playerToTeamMap.get(currentSelection);
+            
+            Object.keys(ts.options).forEach((optionId) => {
+                const originalOptionData = ts.options[optionId];
+                if (!originalOptionData.value) return;
 
-            Object.values(ts.options).forEach((option) => {
+                let shouldDisable = false;
+                const optionPlayerId = originalOptionData.value;
+                const optionTeamName = originalOptionData.teamName || playerToTeamMap.get(optionPlayerId);
                 
-                if (!option.value || option.value === "") return;
-
-                const playerId = option.value; // technically could also be teamId
-                const teamName = option?.teamName;
-                let isDisabled = false;
-
-                const picksOfThisPlayer = selectedPlayerIds.get(playerId) || 0;
-                if (
-                    picksOfThisPlayer >= maxPicksPerPlayer &&
-                    playerId !== currentSelection
-                ) {
-                    isDisabled = true;
+                const picksOfThisPlayer = selectedPlayerIds.get(optionPlayerId) || 0;
+                if (picksOfThisPlayer >= maxPicksPerPlayer && optionPlayerId !== currentSelection) {
+                    shouldDisable = true;
                 }
 
-                const picksFromThisTeam = teamPlayerCounts.get(teamName) || 0;
-                if (maxPlayersPerTeam !== null && picksFromThisTeam >= maxPlayersPerTeam) {
-                    const isCurrentSelectionTeam = option.teamName == teamPlayerMap.get(currentSelection);
-                    if (!isCurrentSelectionTeam) {
-                        isDisabled = true;
-                    }
+                const picksFromThisTeam = selectedTeamCounts.get(optionTeamName) || 0;
+                if (!shouldDisable && picksFromThisTeam >= maxPlayersPerTeam && optionTeamName !== teamOfCurrentSelection) {
+                    shouldDisable = true;
                 }
-                
-                if (isDisabled) {
-                  option.disabled = true;
-                } else {
-                  option.disabled = false;
+
+                // Only call the API if the state actually needs to change.
+                if (originalOptionData.disabled !== shouldDisable) {
+                    const newOptionData = {
+                        ...originalOptionData,
+                        disabled: shouldDisable,
+                    };
+                    ts.updateOption(optionId, newOptionData);
                 }
             });
         });

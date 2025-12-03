@@ -2,7 +2,7 @@
 
 {{ module.table_data|dataclass_asdict|json_script:module.table_data_id }}
 
-<div x-data="statPredictionTable('{{ module.id }}')" x-init="init()">
+<div x-data="statPredictionTable('{{ module.id }}')" x-init="init(); tooltipOpen = false; $watch('tooltipOpen', value => { if (value) { $el.style.minHeight = (($el.scrollHeight || $el.offsetHeight) + 200) + 'px'; } else { $el.style.minHeight = ''; } })">
     <h2>{{ module.name }}</h2>
     <table class="table table-bordered">
         <thead>
@@ -25,14 +25,36 @@
                 <tr>
                     <td x-text="row.user"></td>
                     <template x-for="(prediction, i) in row.predictions" :key="i">
-                        <td>
-                            <span x-text="prediction.display"></span>
-                            <span
-                                x-show="row.user_uuid"
-                                class="prediction-label"
-                                :style="{ backgroundColor: prediction.color, float: 'right' }"
-                                x-text="prediction.points"
-                            ></span>
+                        <td x-data="{ showTooltip: false, tooltipAbove: false }" style="position: relative;">
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <span
+                                    :class="prediction.display_list ? 'text-truncate' : ''"
+                                    :style="prediction.display_list ? 'max-width: 150px; cursor: pointer; flex-grow: 1;' : 'max-width: 150px; flex-grow: 1;'"
+                                    @click="if (prediction.display_list) { showTooltip = !showTooltip; tooltipOpen = showTooltip }"
+                                    @mouseenter="if (prediction.display_list) { const rect = $el.getBoundingClientRect(); tooltipAbove = (window.innerHeight - rect.bottom) < 150; showTooltip = true; tooltipOpen = true }"
+                                    @mouseleave="showTooltip = false; tooltipOpen = false"
+                                    x-text="prediction.display"
+                                    style="flex-grow: 1;"
+                                ></span>
+                                <span
+                                    x-show="row.user_uuid"
+                                    class="prediction-label"
+                                    :style="{ backgroundColor: prediction.color }"
+                                    x-text="prediction.points"
+                                ></span>
+                            </div>
+                            <div
+                                x-show="prediction.display_list && showTooltip"
+                                x-transition
+                                :class="tooltipAbove ? 'tied-players-tooltip-above' : 'tied-players-tooltip'"
+                                @mouseenter="showTooltip = true; tooltipOpen = true"
+                                @mouseleave="showTooltip = false; tooltipOpen = false"
+                                @click.away="showTooltip = false; tooltipOpen = false"
+                            >
+                                <template x-for="name in prediction.display_list" :key="name">
+                                    <div x-text="name"></div>
+                                </template>
+                            </div>
                         </td>
                     </template>
                     <td><strong x-text="row.score ?? ''"></strong></td>

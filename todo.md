@@ -1,9 +1,11 @@
 TODO:
+add notifications for admin actions/tasks (do not just fail silently)
+add notifications for admins on submissions
+add opt in notification system for users
+
+PLANNED FEATURES:
 hall of fame
-swiss stage result table sort only works for points, not scores
 show some sort of result summary in landing page
-sometimes when clearing dream team input, reserverd teams/players are not cleared correctly
-for ties in dream team, show all tying players in same cell
 
 Workflow concept:
 

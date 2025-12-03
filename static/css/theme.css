@@ -648,3 +648,92 @@ footer,
     max-width: 1650px;
   }
 }
+
+/* ============================================
+   Tied Players Tooltip
+   ============================================ */
+.tied-players-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  background-color: var(--bs-tertiary-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.375rem;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1050;
+  min-width: 150px;
+  max-width: 300px;
+  white-space: normal;
+}
+
+.tied-players-tooltip div {
+  padding: 4px 0;
+  color: var(--bs-body-color);
+}
+
+.tied-players-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: var(--bs-border-color);
+}
+
+.tied-players-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-bottom-color: var(--bs-tertiary-bg);
+  margin-bottom: -1px;
+}
+
+.tied-players-tooltip-above {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  background-color: var(--bs-tertiary-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.375rem;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1050;
+  min-width: 150px;
+  max-width: 300px;
+  white-space: normal;
+}
+
+.tied-players-tooltip-above div {
+  padding: 4px 0;
+  color: var(--bs-body-color);
+}
+
+.tied-players-tooltip-above::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--bs-border-color);
+}
+
+.tied-players-tooltip-above::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--bs-tertiary-bg);
+  margin-top: -1px;
+}

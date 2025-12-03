@@ -110,6 +110,11 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 # Custom User Model
 AUTH_USER_MODEL = "fantasy.User"
 
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    "fantasy.backends.SlugOrEmailBackend",
+]
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

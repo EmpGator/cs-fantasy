@@ -8,17 +8,56 @@
     <div class="card bg-body-tertiary border-secondary">
       <div class="card-body">
         <h1 class="card-title text-center mb-4">Login</h1>
-        <p class="text-center mb-4">Enter your user slug to access your page.</p>
+        <p class="text-center mb-4">Enter your credentials to access your page.</p>
+
         <form method="post">
           {% csrf_token %}
+
+          {% if next %}
+          <input type="hidden" name="next" value="{{ next }}">
+          {% endif %}
+
           <div class="mb-3">
-            <label for="user_slug" class="form-label">User Slug</label>
-            <input type="text" class="form-control" id="user_slug" name="user_slug" required>
+            <label for="username" class="form-label">Username / Email / Slug</label>
+            <input
+              type="text"
+              class="form-control"
+              id="username"
+              name="username"
+              value="{{ username|default:'' }}"
+              required
+              autofocus
+            >
+            <div class="form-text text-secondary">
+              You can use your slug, email, or username to log in.
+            </div>
           </div>
+
+          <div class="mb-3">
+            <label for="password" class="form-label">
+              Password
+              <span class="text-muted">(if applicable)</span>
+            </label>
+            <input
+              type="password"
+              class="form-control"
+              id="password"
+              name="password"
+              autocomplete="current-password"
+            >
+            <div class="form-text text-secondary">
+              Leave blank if your account doesn't use a password.
+            </div>
+          </div>
+
           <div class="d-grid">
             <button type="submit" class="btn btn-primary">Login</button>
           </div>
         </form>
+
+        <div class="text-center mt-3">
+          <a href="{% url 'register' %}">Don't have an account? Register</a>
+        </div>
       </div>
     </div>
   </div>
