@@ -76,6 +76,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.username or self.slug
 
     def save(self, *args, **kwargs):
+        is_new = self.pk is None
+
         if not self.slug:
             base_slug = slugify(self.email.split("@")[0])
             slug = base_slug
@@ -84,7 +86,21 @@ class User(AbstractBaseUser, PermissionsMixin):
                 slug = f"{base_slug}-{counter}"
                 counter += 1
             self.slug = slug
+
         super().save(*args, **kwargs)
+
+        if is_new:
+            from fantasy.models import UserNotificationSettings, NotificationType
+            settings = UserNotificationSettings.objects.create(
+                user=self,
+                notifications_enabled=self.is_superuser
+            )
+            default_types = NotificationType.objects.filter(
+                is_active=True,
+                is_admin_only=False,
+                default_enabled=True
+            )
+            settings.enabled_types.set(default_types)
 
 
 class Tournament(NamedMixin, ActiveMixin, TimestampMixin):
@@ -334,6 +350,18 @@ class BaseModule(
         logger.info(
             f"Finished updating scores for module {self.name}. Updated {updated_count} user scores."
         )
+
+        if updated_count > 0:
+            try:
+                from fantasy.services.notifications import notification_service
+                notification_service.send_to_all_users(
+                    notification_type="score_update",
+                    title=f"Scores Updated: {self.name}",
+                    message=f"Scores have been calculated for {self.name}. Check your points!"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send score update notification: {e}")
+
         return updated_count
 
     def has_results(self):
@@ -384,6 +412,13 @@ class BaseModule(
 
         if schedule_needed and self.end_date and not self.is_completed:
             self._schedule_finalization()
+
+        if self.prediction_deadline:
+            try:
+                from fantasy.tasks.deadline_reminders import schedule_deadline_reminders
+                schedule_deadline_reminders(self)
+            except Exception as e:
+                logger.warning(f"Failed to schedule deadline reminders: {e}")
 
         if check_stage_completion:
             self._check_stage_advancement()
@@ -477,6 +512,20 @@ class BaseModule(
             next_stage.id,
             task_name=f"populate_stage_{next_stage.id}",
         )
+
+        try:
+            from fantasy.services.notifications import notification_service
+            notification_service.send_to_all_users(
+                notification_type="stage_advancement",
+                title=f"Stage Advanced: {self.stage.name} → {next_stage.name}",
+                message=(
+                    f"Stage {self.stage.name} completed.\n"
+                    f"Next stage {next_stage.name} has been activated.\n"
+                    f"Population task scheduled."
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send stage advancement notification: {e}")
 
 
 class Team(PredictionOption):

@@ -37,6 +37,13 @@ from .scoring import (
     UserTournamentScore,
 )
 from .cookies import CloudflareCookie
+from .notifications import (
+    NotificationChannel,
+    NotificationType,
+    UserNotificationPreference,
+    UserNotificationSettings,
+    NotificationLog,
+)
 
 __all__ = [
     "User",
@@ -68,4 +75,9 @@ __all__ = [
     "UserStatPredictionsModuleScore",
     "UserTournamentScore",
     "CloudflareCookie",
+    "NotificationChannel",
+    "NotificationType",
+    "UserNotificationPreference",
+    "UserNotificationSettings",
+    "NotificationLog",
 ]

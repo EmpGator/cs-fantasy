@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from decouple import config, Csv
+import urllib.parse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,16 +22,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = config("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='', cast=Csv())
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="", cast=Csv())
 
 # Security settings for production behind proxy
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='', cast=Csv())
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Increase for complex admin forms with many nested inlines
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000
@@ -95,11 +96,11 @@ WSGI_APPLICATION = "cs_fantasy.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config('DATABASE_NAME', default='cs_fantasy_db'),
-        "USER": config('DATABASE_USER', default='postgres'),
-        "PASSWORD": config('DATABASE_PASSWORD', default=''),
-        "HOST": config('DATABASE_HOST', default='localhost'),
-        "PORT": config('DATABASE_PORT', default='5432'),
+        "NAME": config("DATABASE_NAME", default="cs_fantasy_db"),
+        "USER": config("DATABASE_USER", default="postgres"),
+        "PASSWORD": config("DATABASE_PASSWORD", default=""),
+        "HOST": config("DATABASE_HOST", default="localhost"),
+        "PORT": config("DATABASE_PORT", default="5432"),
     }
 }
 
@@ -134,6 +135,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+LOGIN_URL = "/login/"
+LOGOUT_URL = "/logout/"
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
@@ -164,35 +168,35 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Cache Configuration
-REDIS_URL = config('REDIS_URL', default='redis://127.0.0.1:6379')
+REDIS_URL = config("REDIS_URL", default="redis://127.0.0.1:6379")
 CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': f'{REDIS_URL}/1',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
-        'KEY_PREFIX': 'cs_fantasy',
-        'TIMEOUT': 300,  # Default 5 minutes
+        "KEY_PREFIX": "cs_fantasy",
+        "TIMEOUT": 300,  # Default 5 minutes
     }
 }
 
 # Django-Q Configuration
 # Parse Redis URL for Django-Q
-import urllib.parse
+
 _redis_parsed = urllib.parse.urlparse(REDIS_URL)
 Q_CLUSTER = {
-    'name': 'cs_fantasy',
-    'workers': 4,
-    'recycle': 500,
-    'timeout': 300,
-    'retry': 360,
-    'queue_limit': 50,
-    'bulk': 10,
-    'redis': {
-        'host': _redis_parsed.hostname or '127.0.0.1',
-        'port': _redis_parsed.port or 6379,
-        'db': 0,  # Use db 0 for Django-Q (cache uses db 1)
-        'password': _redis_parsed.password,
-    }
+    "name": "cs_fantasy",
+    "workers": 4,
+    "recycle": 500,
+    "timeout": 300,
+    "retry": 360,
+    "queue_limit": 50,
+    "bulk": 10,
+    "redis": {
+        "host": _redis_parsed.hostname or "127.0.0.1",
+        "port": _redis_parsed.port or 6379,
+        "db": 0,  # Use db 0 for Django-Q (cache uses db 1)
+        "password": _redis_parsed.password,
+    },
 }

@@ -23,6 +23,103 @@
             <label for="email" class="form-label">Email (optional)</label>
             <input type="email" class="form-control" id="email" name="email" value="{{ user.email|default:'' }}">
           </div>
+
+          <hr class="my-4">
+          <h5 class="mb-3">Authentication</h5>
+
+          <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="uses_password" name="uses_password" {% if user.uses_password %}checked{% endif %}>
+            <label class="form-check-label" for="uses_password">
+              Enable password login
+            </label>
+            <div class="form-text text-secondary">
+              Allow logging in with email and password in addition to passkey authentication.
+            </div>
+          </div>
+
+          <div id="password-fields" style="{% if not user.uses_password %}display: none;{% endif %}">
+            <div class="mb-3">
+              <label for="new_password" class="form-label">
+                {% if user.has_usable_password %}Change Password{% else %}Set Password{% endif %}
+              </label>
+              <input type="password" class="form-control" id="new_password" name="new_password" minlength="8">
+              <div class="form-text text-secondary">
+                {% if user.has_usable_password %}
+                  Leave blank to keep current password. Minimum 8 characters.
+                {% else %}
+                  Set a password to enable password login. Minimum 8 characters.
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="confirm_password" class="form-label">Confirm Password</label>
+              <input type="password" class="form-control" id="confirm_password" name="confirm_password" minlength="8">
+            </div>
+          </div>
+
+          <script>
+            document.getElementById('uses_password').addEventListener('change', function() {
+              document.getElementById('password-fields').style.display = this.checked ? 'block' : 'none';
+            });
+          </script>
+
+          <hr class="my-4">
+          <h5 class="mb-3">Notifications</h5>
+
+          <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="notifications_enabled" name="notifications_enabled" {% if notification_settings.notifications_enabled %}checked{% endif %}>
+            <label class="form-check-label" for="notifications_enabled">
+              Enable notifications
+            </label>
+            <div class="form-text text-secondary">
+              Master switch for all notifications. Disable this to stop receiving all notifications.
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Notification Preferences</label>
+            <div class="form-text text-secondary mb-2">
+              Choose which notifications you want to receive on each channel.
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered">
+                <thead>
+                  <tr>
+                    <th>Notification Type</th>
+                    {% for channel in channels %}
+                    <th class="text-center">{{ channel.name }}</th>
+                    {% endfor %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% load fantasy_tags %}
+                  {% for notification_type in notification_types %}
+                  <tr>
+                    <td>
+                      {{ notification_type.name }}
+                      {% if notification_type.description %}
+                      <br><small class="text-secondary">{{ notification_type.description }}</small>
+                      {% endif %}
+                    </td>
+                    {% for channel in channels %}
+                    <td class="text-center">
+                      {% with pref_key=notification_type.id|stringformat:"i"|add:"_"|add:channel.id|stringformat:"i" %}
+                      <input type="checkbox"
+                             class="form-check-input"
+                             name="pref_{{ notification_type.id }}_{{ channel.id }}"
+                             {% if preferences|get_item:pref_key %}checked{% endif %}>
+                      {% endwith %}
+                    </td>
+                    {% endfor %}
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="d-grid">
             <button type="submit" class="btn btn-primary">Save Changes</button>
           </div>

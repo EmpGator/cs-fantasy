@@ -87,6 +87,21 @@ def populate_stage_modules(stage_id, attempt=0):
                     f"Scheduling retry in {delay} minutes (attempt {attempt + 2})"
                 )
                 _schedule_population_retry(stage_id, attempt + 1, delay)
+
+                try:
+                    from fantasy.services.notifications import notification_service
+                    notification_service.send_to_all_users(
+                        notification_type="population_retry",
+                        title=f"Module Population Retry: {stage.name}",
+                        message=(
+                            f"Stage: {stage.name}\n"
+                            f"Incomplete modules: {', '.join(incomplete_modules)}\n"
+                            f"Next attempt: {attempt + 2} in {delay} minutes"
+                        )
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send retry notification: {e}")
+
                 return {
                     "status": "retry_scheduled",
                     "stage_id": stage_id,
@@ -99,6 +114,22 @@ def populate_stage_modules(stage_id, attempt=0):
                     f"Max retries reached for stage {stage_id}. "
                     f"Incomplete modules: {incomplete_modules}"
                 )
+
+                try:
+                    from fantasy.services.notifications import notification_service
+                    notification_service.send_to_all_users(
+                        notification_type="population_failed",
+                        title=f"Module Population Failed: {stage.name}",
+                        message=(
+                            f"Stage: {stage.name} (ID: {stage_id})\n"
+                            f"Incomplete modules: {', '.join(incomplete_modules)}\n"
+                            f"Max retries ({len(POPULATION_RETRY_DELAYS)}) exceeded.\n"
+                            f"Manual intervention required."
+                        )
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send failure notification: {e}")
+
                 return {
                     "status": "error",
                     "reason": "max_retries_exceeded",
@@ -120,6 +151,17 @@ def populate_stage_modules(stage_id, attempt=0):
         return {"status": "error", "reason": "stage_not_found"}
     except Exception as e:
         logger.error(f"Error populating stage {stage_id}: {e}", exc_info=True)
+
+        try:
+            from fantasy.services.notifications import notification_service
+            notification_service.send_to_all_users(
+                notification_type="admin_error",
+                title=f"Stage Population Error: Stage {stage_id}",
+                message=f"Error: {str(e)}\nSee logs for details."
+            )
+        except Exception as notify_error:
+            logger.warning(f"Failed to send error notification: {notify_error}")
+
         raise
 
 
@@ -486,10 +528,32 @@ def finalize_module(content_type_id, module_id):
         result = handler(module)
 
         logger.info(f"Successfully finalized {ct.model} module {module_id}")
+
+        try:
+            from fantasy.services.notifications import notification_service
+            notification_service.send_to_all_users(
+                notification_type="module_complete",
+                title=f"Module Completed: {module.name}",
+                message=f"{module.name} has been finalized. Check the results!"
+            )
+        except Exception as notify_error:
+            logger.warning(f"Failed to send completion notification: {notify_error}")
+
         return result
 
     except Exception as e:
         logger.error(f"Error finalizing module {module_id}: {e}", exc_info=True)
+
+        try:
+            from fantasy.services.notifications import notification_service
+            notification_service.send_to_all_users(
+                notification_type="admin_error",
+                title=f"Module Finalization Error: {module_id}",
+                message=f"Module: {ct.model} (ID: {module_id})\nError: {str(e)}"
+            )
+        except Exception as notify_error:
+            logger.warning(f"Failed to send error notification: {notify_error}")
+
         raise  # Let Django-Q handle retry
 
 

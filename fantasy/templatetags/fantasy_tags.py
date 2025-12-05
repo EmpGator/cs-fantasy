@@ -1,6 +1,7 @@
 from dataclasses import asdict, is_dataclass
 from django import template
 from django.template.loader import get_template
+from ..utils.colors import interpolate_color
 
 register = template.Library()
 
@@ -56,3 +57,40 @@ def dataclass_asdict(value):
 
     # Return value as-is if it's not a dataclass
     return value
+
+
+@register.simple_tag
+def gradient_color(value, start_color, end_color, queryset, attr_name):
+    """
+    Calculate gradient color for a value based on min/max from queryset.
+
+    Args:
+        value: The numeric value to calculate color for
+        start_color: Hex color for minimum value (e.g., '#5b6836')
+        end_color: Hex color for maximum value (e.g., '#198754')
+        queryset: QuerySet or iterable of objects
+        attr_name: Name of the attribute to extract from queryset objects
+
+    Returns:
+        Hex color string
+
+    Usage:
+        {% gradient_color user_tournament_score.total_points '#5b6836' '#198754' tournament_scores 'total_points' %}
+    """
+    try:
+        values = [getattr(obj, attr_name) for obj in queryset]
+
+        if not values:
+            return start_color
+
+        min_val = min(values)
+        max_val = max(values)
+
+        if min_val == max_val:
+            factor = 1.0
+        else:
+            factor = (value - min_val) / (max_val - min_val)
+
+        return interpolate_color(start_color, end_color, factor)
+    except (AttributeError, TypeError, ZeroDivisionError):
+        return start_color

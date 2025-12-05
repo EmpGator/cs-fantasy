@@ -6,6 +6,7 @@ Models are registered with a custom grouped admin site for better organization.
 
 from .site import grouped_admin_site
 from . import django_q
+from . import notifications
 from .core import PlayerAdmin, TeamAdmin, TournamentAdmin, UserAdmin
 from .stat_predictions import (
     StatPredictionAdmin,
@@ -31,6 +32,11 @@ from .bracket import (
     UserMatchPredictionAdmin,
 )
 from .scoring import UserModuleScoreAdmin, UserTournamentScoreAdmin
+from .notifications import (
+    NotificationTypeAdmin,
+    UserNotificationSettingsAdmin,
+    NotificationLogAdmin,
+)
 
 __all__ = [
     "grouped_admin_site",  # Custom admin site
@@ -57,4 +63,7 @@ __all__ = [
     "UserMatchPredictionAdmin",
     "UserModuleScoreAdmin",
     "UserTournamentScoreAdmin",
+    "NotificationTypeAdmin",
+    "UserNotificationSettingsAdmin",
+    "NotificationLogAdmin",
 ]

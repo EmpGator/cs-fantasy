@@ -80,6 +80,15 @@ class GroupedAdminSite(AdminSite):
                 "fantasy.userstatpredictionsmodulescore",
             ],
         },
+        "Notifications": {
+            "models": [
+                "fantasy.notificationchannel",
+                "fantasy.notificationtype",
+                "fantasy.usernotificationpreference",
+                "fantasy.usernotificationsettings",
+                "fantasy.notificationlog",
+            ],
+        },
         "Task Management": {
             "models": [
                 "django_q.schedule",

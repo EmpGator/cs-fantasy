@@ -287,7 +287,10 @@ def user_landingpage(
         auth_response = _authenticate_user_by_slug(request, user, f"/user/{user.slug}/")
         if auth_response:
             return auth_response
-    tournaments = Tournament.objects.filter(is_active=True)
+    tournaments = Tournament.objects.filter(is_active=True).prefetch_related(
+        "usertournamentscore_set__user"
+    )
+
     context = {
         "user": user,
         "tournaments": tournaments,
@@ -927,26 +930,140 @@ def tournament_combination_view(request, tournament_slug):
 @login_required
 def profile_view(request):
     user = request.user
+    from fantasy.models import (
+        UserNotificationSettings,
+        NotificationType,
+        NotificationChannel,
+        UserNotificationPreference
+    )
+
+    notification_settings = UserNotificationSettings.objects.get_or_create(user=user)[0]
+
+    if user.is_superuser:
+        notification_types = NotificationType.objects.filter(is_active=True).order_by("name")
+        channels = NotificationChannel.objects.filter(is_active=True).order_by('order', 'name')
+    else:
+        notification_types = NotificationType.objects.filter(
+            is_active=True, is_admin_only=False
+        ).order_by("name")
+        channels = NotificationChannel.objects.filter(
+            is_active=True,
+            is_admin_only=False
+        ).order_by('order', 'name')
+
+    # Get user's current preferences
+    preferences = {}
+    user_prefs = UserNotificationPreference.objects.filter(
+        user=user
+    ).select_related('notification_type', 'channel')
+
+    for pref in user_prefs:
+        key = f"{pref.notification_type.id}_{pref.channel.id}"
+        preferences[key] = pref.enabled
+
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
         email = request.POST.get("email", "").strip() or None
+        uses_password = request.POST.get("uses_password") == "on"
+        new_password = request.POST.get("new_password", "").strip()
+        confirm_password = request.POST.get("confirm_password", "").strip()
+        notifications_enabled = request.POST.get("notifications_enabled") == "on"
 
         if not username:
             messages.error(request, "Username is required.")
-        else:
-            if (
-                email
-                and User.objects.filter(email=email).exclude(uuid=user.uuid).exists()
-            ):
-                messages.error(request, "This email is already in use.")
+        elif (
+            email and User.objects.filter(email=email).exclude(uuid=user.uuid).exists()
+        ):
+            messages.error(request, "This email is already in use.")
+        elif uses_password and new_password:
+            if new_password != confirm_password:
+                messages.error(request, "Passwords do not match.")
+            elif len(new_password) < 8:
+                messages.error(request, "Password must be at least 8 characters long.")
             else:
                 user.username = username
                 user.email = email
+                user.uses_password = uses_password
+                user.set_password(new_password)
                 user.save()
-                messages.success(request, "Profile updated successfully.")
-                return redirect("profile")
 
-    return render(request, "fantasy/core/profile.html")
+                notification_settings.notifications_enabled = notifications_enabled
+                notification_settings.save()
+
+                # Handle notification preferences
+                UserNotificationPreference.objects.filter(user=user).delete()
+                for key, value in request.POST.items():
+                    if key.startswith("pref_"):
+                        _, type_id, channel_id = key.split("_")
+                        if value == "on":
+                            UserNotificationPreference.objects.create(
+                                user=user,
+                                notification_type_id=type_id,
+                                channel_id=channel_id,
+                                enabled=True
+                            )
+
+                # Initialize defaults for new users if no preferences exist
+                if not UserNotificationPreference.objects.filter(user=user).exists():
+                    for notif_type in notification_types:
+                        for channel in channels:
+                            if notif_type.default_enabled and channel.default_enabled:
+                                UserNotificationPreference.objects.create(
+                                    user=user,
+                                    notification_type=notif_type,
+                                    channel=channel,
+                                    enabled=True
+                                )
+
+                messages.success(
+                    request,
+                    "Profile updated successfully. Please log in again with your new password.",
+                )
+                return redirect("profile")
+        else:
+            user.username = username
+            user.email = email
+            user.uses_password = uses_password
+            user.save()
+
+            notification_settings.notifications_enabled = notifications_enabled
+            notification_settings.save()
+
+            # Handle notification preferences
+            UserNotificationPreference.objects.filter(user=user).delete()
+            for key, value in request.POST.items():
+                if key.startswith("pref_"):
+                    _, type_id, channel_id = key.split("_")
+                    if value == "on":
+                        UserNotificationPreference.objects.create(
+                            user=user,
+                            notification_type_id=type_id,
+                            channel_id=channel_id,
+                            enabled=True
+                        )
+
+            # Initialize defaults for new users if no preferences exist
+            if not UserNotificationPreference.objects.filter(user=user).exists():
+                for notif_type in notification_types:
+                    for channel in channels:
+                        if notif_type.default_enabled and channel.default_enabled:
+                            UserNotificationPreference.objects.create(
+                                user=user,
+                                notification_type=notif_type,
+                                channel=channel,
+                                enabled=True
+                            )
+
+            messages.success(request, "Profile updated successfully.")
+            return redirect("profile")
+
+    context = {
+        "notification_settings": notification_settings,
+        "notification_types": notification_types,
+        "channels": channels,
+        "preferences": preferences,
+    }
+    return render(request, "fantasy/core/profile.html", context)
 
 
 def logout_view(request: HttpRequest) -> HttpResponse:

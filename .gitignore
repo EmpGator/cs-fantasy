@@ -6,3 +6,4 @@ __pycache__/
 staticfiles/
 *.log
 db.sqlite3
+views_core.md

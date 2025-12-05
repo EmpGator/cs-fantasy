@@ -8,6 +8,10 @@ from .module_finalization import (
     populate_bracket_module,
     populate_stat_predictions_module,
 )
+from .deadline_reminders import (
+    schedule_deadline_reminders,
+    send_deadline_reminder,
+)
 
 __all__ = [
     "finalize_module",
@@ -18,4 +22,6 @@ __all__ = [
     "populate_swiss_module",
     "populate_bracket_module",
     "populate_stat_predictions_module",
+    "schedule_deadline_reminders",
+    "send_deadline_reminder",
 ]
