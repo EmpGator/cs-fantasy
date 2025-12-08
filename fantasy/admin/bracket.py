@@ -13,7 +13,7 @@ class BracketMatchNestedInline(nested_admin.NestedTabularInline):
     model = BracketMatch
     extra = 0
     fields = ("round", "best_of", "team_a", "team_a_score", "team_b", "team_b_score", "winner", "winner_to_match", "hltv_match_id")
-    raw_id_fields = ("team_a", "team_b", "winner", "winner_to_match")
+    raw_id_fields = ("team_a", "team_b", "winner")
 
 
 class BracketInline(nested_admin.NestedStackedInline):
@@ -31,7 +31,7 @@ class BracketMatchInline(admin.TabularInline):
     model = BracketMatch
     extra = 0
     fields = ("round", "best_of", "team_a", "team_a_score", "team_b", "team_b_score", "winner", "winner_to_match", "hltv_match_id")
-    raw_id_fields = ("team_a", "team_b", "winner", "winner_to_match")
+    raw_id_fields = ("team_a", "team_b", "winner")
 
 
 @admin.register(Bracket)
@@ -47,7 +47,7 @@ class BracketAdmin(ModuleStageAdminMixin, admin.ModelAdmin):
 class BracketMatchAdmin(admin.ModelAdmin):
     list_display = ("__str__", "bracket", "round", "best_of")
     list_filter = ("bracket", "round")
-    raw_id_fields = ("bracket", "team_a", "team_b", "winner", "winner_to_match")
+    raw_id_fields = ("bracket", "team_a", "team_b", "winner")
 
 
 class UserMatchPredictionInline(admin.TabularInline):

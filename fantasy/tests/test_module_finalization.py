@@ -691,10 +691,71 @@ class PopulationHandlersTest(TestCase):
 
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["matches_updated"], 1)
+        self.assertEqual(result.get("matches_created", 0), 0)
 
         match.refresh_from_db()
         self.assertEqual(match.team_a, self.team1)
         self.assertEqual(match.team_b, self.team2)
+
+    def test_populate_bracket_module_creates_matches(self):
+        """Test Bracket module creates matches when they don't exist."""
+        module = Bracket.objects.create(
+            name="Bracket",
+            tournament=self.tournament,
+            stage=self.stage,
+            start_date=timezone.now(),
+            end_date=timezone.now() + timezone.timedelta(days=1),
+        )
+
+        # No matches exist initially
+        self.assertEqual(module.matches.count(), 0)
+
+        parsed_data = {
+            "brackets": [
+                ParsedBracket(
+                    name="Playoffs",
+                    bracket_type="single",
+                    matches=[
+                        BracketMatchResult(
+                            hltv_match_id=9001,
+                            slot_id="r1-m1",
+                            team_a_hltv_id=101,
+                            team_b_hltv_id=102,
+                            team_a_score=0,
+                            team_b_score=0,
+                            winner_hltv_id=0,
+                        ),
+                        BracketMatchResult(
+                            hltv_match_id=9002,
+                            slot_id="r2-m1",
+                            team_a_hltv_id=None,  # Unknown teams (later round)
+                            team_b_hltv_id=None,
+                            team_a_score=0,
+                            team_b_score=0,
+                            winner_hltv_id=0,
+                        )
+                    ],
+                )
+            ]
+        }
+
+        result = populate_bracket_module(module, parsed_data)
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["matches_created"], 2)
+        self.assertEqual(module.matches.count(), 2)
+
+        # Check first match has teams set
+        match1 = module.matches.get(hltv_match_id=9001)
+        self.assertEqual(match1.team_a, self.team1)
+        self.assertEqual(match1.team_b, self.team2)
+        self.assertEqual(match1.round, 1)
+
+        # Check second match was created but has no teams (later round)
+        match2 = module.matches.get(hltv_match_id=9002)
+        self.assertIsNone(match2.team_a)
+        self.assertIsNone(match2.team_b)
+        self.assertEqual(match2.round, 2)
 
     def test_populate_bracket_module_no_brackets(self):
         """Test Bracket population with no brackets returns incomplete."""
@@ -749,6 +810,105 @@ class PopulationHandlersTest(TestCase):
 
         self.assertEqual(result["status"], "incomplete")
         self.assertEqual(result["reason"], "no_players")
+
+    def test_populate_stat_predictions_module_filters_by_stage_teams(self):
+        """Test StatPredictions module only includes players from teams in stage Swiss/Bracket modules."""
+        # Create additional teams not in the stage
+        team3 = Team.objects.create(name="Team C", hltv_id=103)
+        team4 = Team.objects.create(name="Team D", hltv_id=104)
+
+        # Create a Swiss module in the same stage with only team1 and team2
+        swiss_module = SwissModule.objects.create(
+            name="Swiss",
+            tournament=self.tournament,
+            stage=self.stage,
+            start_date=timezone.now(),
+            end_date=timezone.now() + timezone.timedelta(days=1),
+        )
+        swiss_module.teams.set([self.team1, self.team2])
+
+        # Create a StatPredictions module in the same stage
+        stats_module = StatPredictionsModule.objects.create(
+            name="Stats",
+            tournament=self.tournament,
+            stage=self.stage,
+            start_date=timezone.now(),
+            end_date=timezone.now() + timezone.timedelta(days=1),
+        )
+
+        # Create a category and definition
+        category = StatPredictionCategory.objects.create(
+            name="MVP",
+            url_template="https://www.hltv.org/stats/players?event={event_id}"
+        )
+        definition = StatPredictionDefinition.objects.create(
+            module=stats_module,
+            category=category,
+            title="Tournament MVP",
+        )
+
+        # Parse data includes players from all 4 teams
+        parsed_data = {
+            "players": [
+                ParsedPlayer(hltv_id=1001, name="Player1", team_hltv_id=101),
+                ParsedPlayer(hltv_id=1002, name="Player2", team_hltv_id=102),
+                ParsedPlayer(hltv_id=1003, name="Player3", team_hltv_id=103),
+                ParsedPlayer(hltv_id=1004, name="Player4", team_hltv_id=104),
+            ],
+            "teams": [
+                ParsedTeam(hltv_id=101, name="Team A"),
+                ParsedTeam(hltv_id=102, name="Team B"),
+                ParsedTeam(hltv_id=103, name="Team C"),
+                ParsedTeam(hltv_id=104, name="Team D"),
+            ],
+        }
+
+        result = populate_stat_predictions_module(stats_module, parsed_data)
+
+        self.assertEqual(result["status"], "success")
+        # Should only create 2 players (from team1 and team2), not all 4
+        self.assertEqual(result["players_created"], 2)
+        self.assertEqual(Player.objects.count(), 2)
+
+        # Verify only players from teams in the Swiss module were added to definition
+        players_in_definition = Player.objects.filter(
+            statpredictiondefinition=definition
+        )
+        player_hltv_ids = set(players_in_definition.values_list("hltv_id", flat=True))
+        self.assertIn(1001, player_hltv_ids)  # Player from team1
+        self.assertIn(1002, player_hltv_ids)  # Player from team2
+        self.assertNotIn(1003, player_hltv_ids)  # Player from team3 (not in stage)
+        self.assertNotIn(1004, player_hltv_ids)  # Player from team4 (not in stage)
+
+    def test_populate_stat_predictions_module_no_stage_modules_uses_all_players(self):
+        """Test StatPredictions module uses all players when no Swiss/Bracket modules in stage."""
+        # Create a StatPredictions module without any Swiss/Bracket modules in the stage
+        stats_module = StatPredictionsModule.objects.create(
+            name="Stats",
+            tournament=self.tournament,
+            stage=self.stage,
+            start_date=timezone.now(),
+            end_date=timezone.now() + timezone.timedelta(days=1),
+        )
+
+        # Parse data includes players from teams
+        parsed_data = {
+            "players": [
+                ParsedPlayer(hltv_id=1001, name="Player1", team_hltv_id=101),
+                ParsedPlayer(hltv_id=1002, name="Player2", team_hltv_id=102),
+            ],
+            "teams": [
+                ParsedTeam(hltv_id=101, name="Team A"),
+                ParsedTeam(hltv_id=102, name="Team B"),
+            ],
+        }
+
+        result = populate_stat_predictions_module(stats_module, parsed_data)
+
+        self.assertEqual(result["status"], "success")
+        # Should create all players since no stage modules to filter by
+        self.assertEqual(result["players_created"], 2)
+        self.assertEqual(Player.objects.count(), 2)
 
 
 class ModuleSchedulingTest(TestCase):

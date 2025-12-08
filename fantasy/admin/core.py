@@ -52,8 +52,50 @@ class TournamentAdmin(nested_admin.NestedModelAdmin):
         "update_tournament_results",
         "schedule_tournament_updates",
         "finalize_ready_modules",
+        "populate_upcoming_modules",
     ]
     change_list_template = "admin/fantasy/tournament/change_list.html"
+
+    @admin.action(description="Populate upcoming modules for selected tournaments")
+    def populate_upcoming_modules(self, request, queryset):
+        from fantasy.tasks.module_finalization import populate_stage_modules
+        
+        for tournament in queryset:
+            upcoming_modules = BaseModule.objects.filter(
+                tournament=tournament,
+                prediction_deadline__gt=timezone.now()
+            )
+
+            if not upcoming_modules.exists():
+                self.message_user(
+                    request,
+                    f"No upcoming modules found for tournament '{tournament.name}'.",
+                    messages.INFO,
+                )
+                continue
+
+            stage_ids_to_populate = set(upcoming_modules.values_list("stage_id", flat=True))
+            
+            populated_stages = 0
+            for stage_id in stage_ids_to_populate:
+                if stage_id is None:
+                    continue
+                try:
+                    populate_stage_modules(stage_id)
+                    populated_stages += 1
+                except Exception as e:
+                    self.message_user(
+                        request,
+                        f"Error triggering population for stage ID {stage_id} in tournament '{tournament.name}': {e}",
+                        messages.ERROR,
+                    )
+            
+            if populated_stages > 0:
+                self.message_user(
+                    request,
+                    f"Triggered population for {populated_stages} stage(s) in tournament '{tournament.name}'.",
+                    messages.SUCCESS,
+                )
 
     @admin.action(description="Calculate scores for selected tournaments")
     def calculate_scores_for_selected_tournaments(self, request, queryset):

@@ -796,6 +796,7 @@ class TournamentWizardView:
         )
 
         if bracket_data and bracket_data.get("matches"):
+            matches_to_create = []
             for match_data in bracket_data["matches"]:
                 round_num = 1
                 slot_id = match_data.get("slot_id", "")
@@ -806,12 +807,35 @@ class TournamentWizardView:
                     if round_match:
                         round_num = int(round_match.group(1))
 
-                BracketMatch.objects.create(
-                    bracket=module,
-                    round=round_num,
-                    hltv_match_id=match_data.get("hltv_match_id"),
-                    best_of=best_of,
+                matches_to_create.append(
+                    BracketMatch(
+                        bracket=module,
+                        round=round_num,
+                        hltv_match_id=match_data.get("hltv_match_id"),
+                        best_of=best_of,
+                    )
                 )
+
+            if matches_to_create:
+                BracketMatch.objects.bulk_create(matches_to_create)
+
+                # Auto-tagging logic
+                all_matches = list(module.matches.all())
+                if all_matches:
+                    max_round = max(m.round for m in all_matches)
+
+                    for match in all_matches:
+                        tags = []
+                        if match.round == max_round:
+                            tags.append("final")
+                        elif match.round == max_round - 1:
+                            tags.append("semi-final")
+                        elif match.round == max_round - 2:
+                            tags.append("quarter-final")
+
+                        if tags:
+                            match.tags = tags
+                            match.save(update_fields=["tags"])
 
         return module
 

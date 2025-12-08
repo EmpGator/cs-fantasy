@@ -316,7 +316,7 @@ class StatPredictionDefinition(models.Model):
         help_text="Optional definition-level scoring rule (overrides module-level scoring if set)",
     )
 
-    options = models.ManyToManyField(PredictionOption)
+    options = models.ManyToManyField(PredictionOption, blank=True)
 
     title = models.CharField(max_length=255)
 

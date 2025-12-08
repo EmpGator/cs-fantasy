@@ -147,6 +147,51 @@ class HLTVParserTest(SimpleTestCase):
         self.assertIn("captured_at", fixture_meta)
         self.assertIn("source_url", fixture_meta)
 
+    def test_parse_brackets_from_major_bracket_sample(self):
+        """Test parsing brackets from major_bracket_sample.html fixture."""
+        from fantasy.services.hltv_parser import parse_brackets, BracketMatchResult, ParsedBracket
+
+        html_file_path = FIXTURES_DIR / "major_bracket_sample.html"
+
+        if not html_file_path.exists():
+            self.skipTest(f"Fixture not found at: {html_file_path}")
+
+        html_content = html_file_path.read_text()
+        brackets = parse_brackets(html_content)
+
+        # Print for verification
+        print("\n" + "=" * 60)
+        print("Parsed Brackets:")
+        print("=" * 60)
+        print(f"Brackets found: {len(brackets)}")
+        for bracket in brackets:
+            print(f"\nBracket: {bracket.name}")
+            print(f"Type: {bracket.bracket_type}")
+            print(f"Matches: {len(bracket.matches)}")
+            for i, match in enumerate(bracket.matches[:5]):
+                print(f"  Match {i+1}: hltv_id={match.hltv_match_id}, "
+                      f"team_a={match.team_a_hltv_id}, team_b={match.team_b_hltv_id}")
+            if len(bracket.matches) > 5:
+                print(f"  ... and {len(bracket.matches) - 5} more matches")
+        print("=" * 60)
+
+        # Assertions
+        self.assertGreater(len(brackets), 0, "Should parse at least one bracket")
+
+        bracket = brackets[0]
+        self.assertIsInstance(bracket, ParsedBracket)
+        self.assertEqual(bracket.name, "Playoffs")
+        self.assertEqual(bracket.bracket_type, "SingleElimination")
+        self.assertGreater(len(bracket.matches), 0, "Bracket should have matches")
+
+        # Check first match structure
+        match = bracket.matches[0]
+        self.assertIsInstance(match, BracketMatchResult)
+        self.assertIsNotNone(match.hltv_match_id, "Match should have hltv_match_id")
+        self.assertIsInstance(match.hltv_match_id, int)
+        self.assertIsNotNone(match.team_a_hltv_id, "First round should have team_a")
+        self.assertIsNotNone(match.team_b_hltv_id, "First round should have team_b")
+
 
 class LeaderboardParserTest(SimpleTestCase):
     """Test HLTV leaderboard parser"""

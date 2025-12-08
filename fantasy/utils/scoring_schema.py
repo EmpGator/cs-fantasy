@@ -44,7 +44,7 @@ class ScoringConfigValidator:
     # Valid operators
     CONDITION_OPERATORS = {
         "eq", "and", "in_list", "in_list_within_top_x",
-        "list_intersects", "always_true"
+        "list_intersects", "always_true", "list_contains_literal", "set_equal"
     }
     SCORING_OPERATORS = {"fixed", "map_points", "scaled_difference"}
 
@@ -56,6 +56,8 @@ class ScoringConfigValidator:
         "in_list_within_top_x": ["source", "target_list", "list_item_key", "position_key", "top_x"],
         "list_intersects": ["source_list", "target_list"],
         "always_true": [],
+        "list_contains_literal": ["source_value", "target_list"],
+        "set_equal": ["source_list", "target_list"],
     }
 
     SCORING_REQUIRED_FIELDS = {

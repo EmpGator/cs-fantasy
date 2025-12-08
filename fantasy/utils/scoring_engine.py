@@ -300,6 +300,62 @@ def _eval_condition_and(condition, prediction, result):
     return all(eval_condition(cond, prediction, result) for cond in conditions)
 
 
+def _eval_condition_list_contains_literal(condition, prediction, result):
+    """
+    Checks if a target list contains a literal source value.
+
+    Expected 'condition' shape:
+    {
+        "operator": "list_contains_literal",
+        "source_value": "final",             # The literal value to search for
+        "target_list": "path.to.list",       # Path to the list (e.g., result.tags)
+    }
+    """
+    context = {"prediction": prediction, "result": result}
+    source_val = condition.get("source_value")
+    target_list = resolve_path(context, condition.get("target_list"))
+
+    if source_val is None or not isinstance(target_list, list):
+        return False
+
+    return source_val in target_list
+
+
+def _eval_condition_set_equal(condition, prediction, result):
+    """
+    Checks if two sets are equal (order-independent comparison).
+
+    Useful for bracket predictions where teams might be in different slots
+    but we want to check if the matchup is correct.
+
+    Expected 'condition' shape:
+    {
+        "operator": "set_equal",
+        "source_list": ["prediction.team_a_id", "prediction.team_b_id"],
+        "target_list": ["result.team_a_id", "result.team_b_id"]
+    }
+    """
+    context = {"prediction": prediction, "result": result}
+
+    source_paths = condition.get("source_list", [])
+    target_paths = condition.get("target_list", [])
+
+    source_values = []
+    for path in source_paths:
+        val = resolve_path(context, path)
+        if val is not None:
+            source_values.append(val)
+
+    target_values = []
+    for path in target_paths:
+        val = resolve_path(context, path)
+        if val is not None:
+            target_values.append(val)
+
+    # Compare as sets (order-independent)
+    return set(source_values) == set(target_values)
+
+
 CONDITION_OPERATORS = {
     "eq": _eval_condition_eq,
     "always_true": _eval_condition_always_true,
@@ -307,6 +363,8 @@ CONDITION_OPERATORS = {
     "in_list_within_top_x": _eval_condition_in_list_within_top_x,
     "list_intersects": _eval_condition_list_intersects,
     "and": _eval_condition_and,
+    "list_contains_literal": _eval_condition_list_contains_literal,
+    "set_equal": _eval_condition_set_equal,
 }
 
 

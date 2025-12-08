@@ -10,12 +10,75 @@ from .core import BaseModule, Team, User
 
 
 def get_default_bracket_scoring_config():
-    """Provides a default scoring configuration for bracket predictions."""
+    """
+    Provides a default scoring configuration for bracket predictions.
+    - 3 points for correct winner, score, and teams (order-independent)
+    - 2 points for correct winner and score
+    - 2 points for correct loser and score
+    - 1 point for correct winner
+    - 1 point for correct loser
+    - Bonus points for correctly predicting winners of tagged matches (final, etc.)
+    """
     return {
         "rules": [
             {
-                "id": "correct_exact_score",
-                "description": "Correctly predicting the exact match score.",
+                "id": "correct_final_winner_bonus",
+                "description": "Bonus for correctly predicting the final winner.",
+                "condition": {
+                    "operator": "and",
+                    "conditions": [
+                        {
+                            "operator": "eq",
+                            "source": "prediction.predicted_winner_id",
+                            "target": "result.winner_id",
+                        },
+                        {
+                            "operator": "list_contains_literal",
+                            "source_value": "final",
+                            "target_list": "result.tags",
+                        },
+                    ],
+                },
+                "scoring": {"operator": "fixed", "value": 1},
+                "exclusive": False,
+            },
+            {
+                "id": "correct_winner_score_and_teams",
+                "description": "Correct winner, score, and teams (order-independent).",
+                "condition": {
+                    "operator": "and",
+                    "conditions": [
+                        {
+                            "operator": "eq",
+                            "source": "prediction.predicted_winner_id",
+                            "target": "result.winner_id",
+                        },
+                        {
+                            "operator": "eq",
+                            "source": "prediction.predicted_team_a_score",
+                            "target": "result.team_a_score",
+                        },
+                        {
+                            "operator": "eq",
+                            "source": "prediction.predicted_team_b_score",
+                            "target": "result.team_b_score",
+                        },
+                        {
+                            "operator": "set_equal",
+                            "source_list": [
+                                "prediction.team_a_id",
+                                "prediction.team_b_id",
+                            ],
+                            "target_list": ["result.team_a_id", "result.team_b_id"],
+                        },
+                    ],
+                },
+                "scoring": {"operator": "fixed", "value": 3},
+                "exclusive": True,
+            },
+            {
+                "id": "correct_winner_and_score",
+                "description": "Correct winner and score, but wrong teams.",
                 "condition": {
                     "operator": "and",
                     "conditions": [
@@ -36,18 +99,56 @@ def get_default_bracket_scoring_config():
                         },
                     ],
                 },
-                "scoring": {"operator": "fixed", "value": 3},
+                "scoring": {"operator": "fixed", "value": 2},
+                "exclusive": True,
+            },
+            {
+                "id": "correct_loser_and_score",
+                "description": "Correct loser and score, but wrong teams.",
+                "condition": {
+                    "operator": "and",
+                    "conditions": [
+                        {
+                            "operator": "eq",
+                            "source": "prediction.predicted_loser_id",
+                            "target": "result.loser_id",
+                        },
+                        {
+                            "operator": "eq",
+                            "source": "prediction.predicted_team_a_score",
+                            "target": "result.team_a_score",
+                        },
+                        {
+                            "operator": "eq",
+                            "source": "prediction.predicted_team_b_score",
+                            "target": "result.team_b_score",
+                        },
+                    ],
+                },
+                "scoring": {"operator": "fixed", "value": 2},
                 "exclusive": True,
             },
             {
                 "id": "correct_winner",
-                "description": "Correctly predicting the match winner.",
+                "description": "Correct winner, but wrong teams and/or score.",
                 "condition": {
                     "operator": "eq",
                     "source": "prediction.predicted_winner_id",
                     "target": "result.winner_id",
                 },
                 "scoring": {"operator": "fixed", "value": 1},
+                "exclusive": True,
+            },
+            {
+                "id": "correct_loser",
+                "description": "Correct loser, but wrong teams and/or score.",
+                "condition": {
+                    "operator": "eq",
+                    "source": "prediction.predicted_loser_id",
+                    "target": "result.loser_id",
+                },
+                "scoring": {"operator": "fixed", "value": 1},
+                "exclusive": True,
             },
         ]
     }
@@ -115,8 +216,8 @@ class Bracket(BaseModule):
         """
         all_match_predictions = UserMatchPrediction.objects.filter(
             user_bracket__bracket=self
-        ).select_related("user_bracket__user", "match")
-        all_results = self.matches.all()
+        ).select_related("user_bracket__user", "match", "team_a", "team_b", "predicted_winner")
+        all_results = self.matches.all().select_related("team_a", "team_b", "winner")
 
         results_map = {result.id: result for result in all_results}
 
@@ -132,7 +233,19 @@ class Bracket(BaseModule):
             user = match_prediction.user_bracket.user
             match_result = results_map.get(match_prediction.match_id)
 
-            if match_result:
+            if match_result and match_result.winner_id:
+                # Augment prediction object for the scoring engine
+                match_prediction.predicted_loser_id = (
+                    match_prediction.predicted_loser.id
+                    if match_prediction.predicted_loser
+                    else None
+                )
+
+                # Augment result object for the scoring engine
+                match_result.loser_id = (
+                    match_result.loser.id if match_result.loser else None
+                )
+
                 evaluation_result = evaluate_rules(
                     rules, match_prediction, match_result
                 )
@@ -196,6 +309,17 @@ class BracketMatch(TimestampMixin, models.Model):
         null=True,
         blank=True,
     )
+    tags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Tags for special scoring rules, e.g., ['final', 'semi-final']",
+    )
+
+    @property
+    def loser(self):
+        if not self.winner_id or not self.team_a_id or not self.team_b_id:
+            return None
+        return self.team_b if self.winner_id == self.team_a_id else self.team_a
 
     class Meta:
         ordering = ["round", "created_at"]
@@ -256,6 +380,12 @@ class UserMatchPrediction(TimestampMixin, models.Model):
     predicted_winner = models.ForeignKey(Team, on_delete=models.CASCADE)
     predicted_team_a_score = models.IntegerField(null=True, blank=True)
     predicted_team_b_score = models.IntegerField(null=True, blank=True)
+
+    @property
+    def predicted_loser(self):
+        if not self.predicted_winner_id or not self.team_a_id or not self.team_b_id:
+            return None
+        return self.team_b if self.predicted_winner_id == self.team_a_id else self.team_a
 
     class Meta:
         unique_together = ("user_bracket", "match")

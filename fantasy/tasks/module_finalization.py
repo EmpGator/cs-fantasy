@@ -63,10 +63,13 @@ def populate_stage_modules(stage_id, attempt=0):
 
         parsed_data = _parse_needed_data(html, data_needs)
 
+        modules_sorted = _sort_modules_by_dependency(modules)
+        logger.debug(f"Processing {len(modules_sorted)} modules in dependency order")
+
         populated_count = 0
         incomplete_modules = []
 
-        for module in modules:
+        for module in modules_sorted:
             module_type = module.__class__.__name__.lower()
             handler = get_population_handler(module_type)
 
@@ -163,6 +166,35 @@ def populate_stage_modules(stage_id, attempt=0):
             logger.warning(f"Failed to send error notification: {notify_error}")
 
         raise
+
+
+def _sort_modules_by_dependency(modules):
+    """
+    Sort modules by dependency order for population.
+
+    StatPredictions modules depend on Swiss/Bracket modules to filter players,
+    so they must be populated after Swiss/Bracket modules.
+
+    Args:
+        modules: List of BaseModule instances
+
+    Returns:
+        list: Sorted modules with Swiss/Bracket first, then StatPredictions
+    """
+    swiss_and_bracket = []
+    stat_predictions = []
+    other = []
+
+    for module in modules:
+        module_type = module.__class__.__name__.lower()
+        if module_type in ("swissmodule", "bracket"):
+            swiss_and_bracket.append(module)
+        elif module_type == "statpredictionsmodule":
+            stat_predictions.append(module)
+        else:
+            other.append(module)
+
+    return swiss_and_bracket + other + stat_predictions
 
 
 def _determine_data_needs(modules):
@@ -329,7 +361,11 @@ def _create_default_swiss_scores(module):
 
 def populate_bracket_module(module, parsed_data):
     """
-    Populate bracket module with teams from parsed bracket data.
+    Populate bracket module with matches and teams from parsed bracket data.
+
+    Creates BracketMatch records if they don't exist, or updates existing ones.
+    Teams are set on matches where they are known (typically first round).
+    Sets up match flow relationships (winner_to_match, loser_to_match).
 
     Args:
         module: Bracket instance
@@ -338,6 +374,8 @@ def populate_bracket_module(module, parsed_data):
     Returns:
         dict: Result information with status
     """
+    from fantasy.models.bracket import BracketMatch
+
     logger.info(f"Populating Bracket module: {module.name}")
 
     brackets_data = parsed_data.get("brackets", [])
@@ -345,48 +383,279 @@ def populate_bracket_module(module, parsed_data):
         logger.warning(f"No brackets found for module {module.name}")
         return {"status": "incomplete", "reason": "no_brackets"}
 
-    # Get bracket matches with hltv_match_id
-    bracket_matches = module.matches.filter(hltv_match_id__isnull=False)
-    if not bracket_matches.exists():
-        logger.warning(f"No bracket matches with hltv_match_id in module {module.name}")
-        return {"status": "incomplete", "reason": "no_matches_with_hltv_id"}
-
-    match_by_hltv_id = {m.hltv_match_id: m for m in bracket_matches}
+    # Check if matches already exist
+    existing_matches = module.matches.filter(hltv_match_id__isnull=False)
+    match_by_hltv_id = {m.hltv_match_id: m for m in existing_matches}
 
     all_teams = Team.objects.filter(hltv_id__isnull=False)
     team_by_hltv_id = {t.hltv_id: t for t in all_teams}
 
+    created_count = 0
     updated_count = 0
+    matches_to_create = []
+    match_data_by_slot = {}  # For setting up relationships later
+
     for bracket in brackets_data:
         for parsed_match in bracket.matches:
-            bracket_match = match_by_hltv_id.get(parsed_match.hltv_match_id)
-            if not bracket_match:
-                continue
+            existing_match = match_by_hltv_id.get(parsed_match.hltv_match_id)
 
-            team_a = team_by_hltv_id.get(parsed_match.team_a_hltv_id)
-            team_b = team_by_hltv_id.get(parsed_match.team_b_hltv_id)
+            if existing_match:
+                # Update existing match with teams if they're known
+                team_a = team_by_hltv_id.get(parsed_match.team_a_hltv_id)
+                team_b = team_by_hltv_id.get(parsed_match.team_b_hltv_id)
 
-            if team_a and team_b:
-                bracket_match.team_a = team_a
-                bracket_match.team_b = team_b
-                bracket_match.save(update_fields=["team_a", "team_b"])
-                updated_count += 1
+                update_fields = []
+                if team_a and existing_match.team_a != team_a:
+                    existing_match.team_a = team_a
+                    update_fields.append("team_a")
+                if team_b and existing_match.team_b != team_b:
+                    existing_match.team_b = team_b
+                    update_fields.append("team_b")
+
+                if update_fields:
+                    existing_match.save(update_fields=update_fields)
+                    updated_count += 1
             else:
-                logger.warning(
-                    f"Could not find teams for match {parsed_match.hltv_match_id}: "
-                    f"team_a={parsed_match.team_a_hltv_id}, team_b={parsed_match.team_b_hltv_id}"
+                # Create new match
+                round_num = _extract_round_number(parsed_match.slot_id)
+                team_a = team_by_hltv_id.get(parsed_match.team_a_hltv_id)
+                team_b = team_by_hltv_id.get(parsed_match.team_b_hltv_id)
+
+                match_obj = BracketMatch(
+                    bracket=module,
+                    round=round_num,
+                    hltv_match_id=parsed_match.hltv_match_id,
+                    team_a=team_a,
+                    team_b=team_b,
+                    best_of=parsed_match.best_of,
+                    name=parsed_match.slot_id or f"Round {round_num}",
                 )
+                matches_to_create.append(match_obj)
+                match_data_by_slot[parsed_match.slot_id] = {
+                    "match": match_obj,
+                    "parsed": parsed_match,
+                }
 
-    if updated_count == 0:
-        return {"status": "incomplete", "reason": "no_matches_updated"}
+    if matches_to_create:
+        BracketMatch.objects.bulk_create(matches_to_create)
+        created_count = len(matches_to_create)
+        logger.info(f"Created {created_count} bracket matches in module {module.name}")
 
-    logger.info(f"Updated {updated_count} bracket matches in module {module.name}")
+        # Set up match flow relationships by analyzing bracket structure
+        _setup_bracket_flow(module, brackets_data[0] if brackets_data else None)
+
+        # Auto-tag matches (final, semi-final, etc.)
+        _auto_tag_bracket_matches(module)
+
+    if updated_count > 0:
+        logger.info(f"Updated {updated_count} bracket matches in module {module.name}")
+
+    if created_count == 0 and updated_count == 0:
+        return {"status": "incomplete", "reason": "no_matches_created_or_updated"}
+
     return {
         "status": "success",
         "module_type": "bracket",
         "module_id": module.id,
+        "matches_created": created_count,
         "matches_updated": updated_count,
     }
+
+
+def _extract_round_number(slot_id):
+    """
+    Extract round number from slot_id.
+
+    Examples:
+        "r1-m1" -> 1
+        "Quarterfinals1" -> 1
+        "Semifinals1" -> 2
+        "GrandFinal" -> 3
+
+    Args:
+        slot_id: Slot identifier string
+
+    Returns:
+        int: Round number
+    """
+    if not slot_id:
+        return 1
+
+    import re
+
+    # Try format like "r1-m1"
+    round_match = re.search(r"r(\d+)", slot_id, re.IGNORECASE)
+    if round_match:
+        return int(round_match.group(1))
+
+    # Map common bracket stage names to round numbers
+    slot_lower = slot_id.lower()
+    if "final" in slot_lower and "semi" not in slot_lower and "quarter" not in slot_lower:
+        return 3  # Final
+    elif "semi" in slot_lower:
+        return 2  # Semifinals
+    elif "quarter" in slot_lower:
+        return 1  # Quarterfinals
+    elif "round of 16" in slot_lower or "ro16" in slot_lower:
+        return 1  # Round of 16
+
+    # Default to round 1
+    return 1
+
+
+def _setup_bracket_flow(module, bracket_data):
+    """
+    Set up winner_to_match and loser_to_match relationships for bracket.
+
+    For single elimination: Quarterfinals feed into Semifinals, Semifinals feed into Final
+    For double elimination: Would need to handle loser brackets
+
+    Args:
+        module: Bracket instance
+        bracket_data: ParsedBracket with match data
+    """
+    if not bracket_data:
+        return
+
+    # Get all matches by name/slot_id
+    all_matches = {m.name: m for m in module.matches.all()}
+
+    # For single elimination, set up based on naming convention
+    # Quarterfinals1/2 -> Semifinals1, Quarterfinals3/4 -> Semifinals2
+    # Semifinals1/2 -> GrandFinal
+
+    # Quarterfinals to Semifinals
+    _link_matches(all_matches, "Quarterfinals1", winner_to="Semifinals1")
+    _link_matches(all_matches, "Quarterfinals2", winner_to="Semifinals1")
+    _link_matches(all_matches, "Quarterfinals3", winner_to="Semifinals2")
+    _link_matches(all_matches, "Quarterfinals4", winner_to="Semifinals2")
+
+    # Semifinals to Final
+    _link_matches(all_matches, "Semifinals1", winner_to="GrandFinal")
+    _link_matches(all_matches, "Semifinals2", winner_to="GrandFinal")
+
+    logger.info(f"Set up bracket flow for {module.name}")
+
+
+def _link_matches(matches_by_name, source_name, winner_to=None, loser_to=None):
+    """
+    Link a source match to destination matches.
+
+    Args:
+        matches_by_name: Dict of match name to BracketMatch object
+        source_name: Name of source match
+        winner_to: Name of match where winner goes
+        loser_to: Name of match where loser goes (for double elimination)
+    """
+    source = matches_by_name.get(source_name)
+    if not source:
+        return
+
+    update_fields = []
+
+    if winner_to:
+        dest = matches_by_name.get(winner_to)
+        if dest and source.winner_to_match != dest:
+            source.winner_to_match = dest
+            update_fields.append("winner_to_match")
+
+    if loser_to:
+        dest = matches_by_name.get(loser_to)
+        if dest and source.loser_to_match != dest:
+            source.loser_to_match = dest
+            update_fields.append("loser_to_match")
+
+    if update_fields:
+        source.save(update_fields=update_fields)
+
+
+def _auto_tag_bracket_matches(module):
+    """
+    Automatically tag bracket matches based on their round.
+
+    Args:
+        module: Bracket instance
+    """
+    all_matches = list(module.matches.all())
+    if not all_matches:
+        return
+
+    max_round = max(m.round for m in all_matches)
+
+    for match in all_matches:
+        tags = []
+        if match.round == max_round:
+            tags.append("final")
+        elif match.round == max_round - 1:
+            tags.append("semi-final")
+        elif match.round == max_round - 2:
+            tags.append("quarter-final")
+
+        if tags and match.tags != tags:
+            match.tags = tags
+            match.save(update_fields=["tags"])
+
+
+def _get_stage_team_hltv_ids(stat_predictions_module):
+    """
+    Get HLTV IDs of teams from Swiss or Bracket modules in the same stage.
+
+    If the stage has Swiss or Bracket modules with teams, return their team HLTV IDs.
+    This is used to filter players for stat predictions to only include players
+    from teams that are actually participating in the current stage.
+
+    Args:
+        stat_predictions_module: StatPredictionsModule instance
+
+    Returns:
+        set: Set of team HLTV IDs from stage modules, or None if no teams found
+    """
+    from fantasy.models.swiss import SwissModule
+    from fantasy.models.bracket import Bracket
+
+    stage = stat_predictions_module.stage
+    if not stage:
+        logger.debug("StatPredictions module has no stage, cannot filter by stage teams")
+        return None
+
+    team_hltv_ids = set()
+
+    swiss_modules = SwissModule.objects.filter(stage=stage).prefetch_related("teams")
+    for swiss_module in swiss_modules:
+        swiss_team_ids = swiss_module.teams.filter(hltv_id__isnull=False).values_list(
+            "hltv_id", flat=True
+        )
+        team_hltv_ids.update(swiss_team_ids)
+        logger.debug(
+            f"Found {len(swiss_team_ids)} teams in Swiss module '{swiss_module.name}'"
+        )
+
+    bracket_modules = Bracket.objects.filter(stage=stage).prefetch_related(
+        "matches__team_a", "matches__team_b"
+    )
+    for bracket_module in bracket_modules:
+        bracket_team_ids = set()
+        for match in bracket_module.matches.all():
+            if match.team_a and match.team_a.hltv_id:
+                bracket_team_ids.add(match.team_a.hltv_id)
+            if match.team_b and match.team_b.hltv_id:
+                bracket_team_ids.add(match.team_b.hltv_id)
+        team_hltv_ids.update(bracket_team_ids)
+        logger.debug(
+            f"Found {len(bracket_team_ids)} teams in Bracket module '{bracket_module.name}'"
+        )
+
+    if not team_hltv_ids:
+        logger.debug(
+            f"No teams found in Swiss or Bracket modules for stage '{stage.name}', "
+            "will use all parsed players"
+        )
+        return None
+
+    logger.info(
+        f"Found {len(team_hltv_ids)} total unique teams in stage '{stage.name}' modules"
+    )
+    return team_hltv_ids
 
 
 def populate_stat_predictions_module(module, parsed_data):
@@ -431,6 +700,16 @@ def populate_stat_predictions_module(module, parsed_data):
             teams_updated_count += 1
 
     team_by_hltv_id = {t.hltv_id: t for t in Team.objects.filter(hltv_id__isnull=False)}
+
+    stage_team_hltv_ids = _get_stage_team_hltv_ids(module)
+    if stage_team_hltv_ids:
+        logger.info(
+            f"Filtering players to only include teams from stage modules: {len(stage_team_hltv_ids)} teams"
+        )
+        players_data = [
+            p for p in players_data if p.team_hltv_id in stage_team_hltv_ids
+        ]
+        logger.info(f"Filtered to {len(players_data)} players")
 
     player_ids = []
     for player_data in players_data:

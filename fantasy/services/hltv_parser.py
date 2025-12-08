@@ -220,7 +220,8 @@ class BracketMatchResult:
     team_b_hltv_id: int
     team_a_score: int
     team_b_score: int
-    winner_hltv_id: int
+    winner_hltv_id: int | None
+    best_of: int = 3
 
 
 @dataclass
@@ -265,46 +266,49 @@ def parse_brackets(html_content: str) -> list[ParsedBracket]:
                     continue
 
                 match_info = matchup.get("match", {})
-                result = matchup.get("result", {})
-
-                if not match_info or not result:
+                if not match_info:
                     continue
 
                 hltv_match_id = match_info.get("matchId")
                 if not hltv_match_id:
                     continue
 
-                match_score = result.get("matchScore", {})
-
                 team1_slot = matchup.get("team1", {})
                 team2_slot = matchup.get("team2", {})
 
-                team1_info = team1_slot.get("team", {})
-                team2_info = team2_slot.get("team", {})
+                team1_info = team1_slot.get("team")
+                team2_info = team2_slot.get("team")
 
-                team_a_hltv_id = team1_info.get("id")
-                team_b_hltv_id = team2_info.get("id")
+                team_a_hltv_id = team1_info.get("id") if team1_info else None
+                team_b_hltv_id = team2_info.get("id") if team2_info else None
 
+                # Include all matches, even those without teams (future rounds)
+                result = matchup.get("result", {}) or {}
+                match_score = result.get("matchScore", {})
                 team_a_score = match_score.get("team1Score", 0)
                 team_b_score = match_score.get("team2Score", 0)
 
-                if match_score.get("team1Winner"):
+                winner_hltv_id = None
+                if match_score.get("team1Winner") and team_a_hltv_id:
                     winner_hltv_id = team_a_hltv_id
-                else:
+                elif match_score.get("team2Winner") and team_b_hltv_id:
                     winner_hltv_id = team_b_hltv_id
 
-                if team_a_hltv_id and team_b_hltv_id and winner_hltv_id:
-                    matches.append(
-                        BracketMatchResult(
-                            hltv_match_id=hltv_match_id,
-                            slot_id=slot_id,
-                            team_a_hltv_id=team_a_hltv_id,
-                            team_b_hltv_id=team_b_hltv_id,
-                            team_a_score=team_a_score,
-                            team_b_score=team_b_score,
-                            winner_hltv_id=winner_hltv_id,
-                        )
+                # Extract best_of from numberOfMaps
+                best_of = match_info.get("numberOfMaps", 3)
+
+                matches.append(
+                    BracketMatchResult(
+                        hltv_match_id=hltv_match_id,
+                        slot_id=slot_id,
+                        team_a_hltv_id=team_a_hltv_id,
+                        team_b_hltv_id=team_b_hltv_id,
+                        team_a_score=team_a_score,
+                        team_b_score=team_b_score,
+                        winner_hltv_id=winner_hltv_id,
+                        best_of=best_of,
                     )
+                )
 
         if matches:
             brackets.append(

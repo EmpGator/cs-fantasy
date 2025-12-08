@@ -33,5 +33,12 @@
     "description": "Upcoming swiss tournament",
     "tournament": "",
     "notes": "Update periodically to catch HTML format changes"
+  },
+  "major_bracket_sample.html": {
+    "captured_at": "2025-12-08T11:36:59.085109",
+    "source_url": "https://www.hltv.org/events/8042/starladder-budapest-major-2025",
+    "description": "HLTV HTML fixture: major_bracket_sample.html",
+    "tournament": "",
+    "notes": "Update periodically to catch HTML format changes"
   }
 }
