@@ -332,6 +332,7 @@ class TournamentWizardView:
                             f"module_end_{stage_idx}_{mod_idx}", ""
                         )
                         module_copy = module.copy()
+                        module_copy.pop("bracket_data", None)
                         module_copy["original_name"] = module[
                             "name"
                         ]  # Preserve for bracket lookup

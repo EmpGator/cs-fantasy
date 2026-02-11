@@ -40,5 +40,12 @@
     "description": "HLTV HTML fixture: major_bracket_sample.html",
     "tournament": "",
     "notes": "Update periodically to catch HTML format changes"
+  },
+  "pgl-swiss.html": {
+    "captured_at": "2026-02-11T09:53:59.355820",
+    "source_url": "https://www.hltv.org/events/8047/pgl-cluj-napoca-2026",
+    "description": "HLTV HTML fixture: pgl-swiss.html",
+    "tournament": "",
+    "notes": "Update periodically to catch HTML format changes"
   }
 }
